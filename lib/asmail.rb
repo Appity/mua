@@ -1,6 +1,10 @@
-require "asmail/version"
+require 'asmail/version'
 
-module Asmail
-  class Error < StandardError; end
-  # Your code goes here...
+module ASMail
+  class Error < StandardError
+  end
 end
+
+require_relative 'asmail/imap'
+require_relative 'asmail/smtp'
+require_relative 'asmail/socks5'

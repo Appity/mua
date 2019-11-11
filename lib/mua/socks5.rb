@@ -1,4 +1,4 @@
-module ASMail::SOCKS5
+module Mua::SOCKS5
 end
 
 require_relative 'socks5/client'

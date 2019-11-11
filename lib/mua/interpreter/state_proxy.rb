@@ -1,4 +1,4 @@
-class ASMail::Interpreter::StateProxy
+class Mua::Interpreter::StateProxy
   # == Constants ============================================================
 
   # == Instance Methods =====================================================

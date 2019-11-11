@@ -1,14 +1,10 @@
-class ASMail::Interpreter
+class Mua::Interpreter
   # == Constants ============================================================
 
   # == Exceptions ===========================================================
   
   class DefinitionException < Exception
   end
-
-  # == Submodules ===========================================================
-  
-  autoload(:StateProxy, 'remailer/interpreter/state_proxy')
   
   # == Properties ===========================================================
   
@@ -352,3 +348,5 @@ protected
     true
   end
 end
+
+require_relative './interpreter/state_proxy'

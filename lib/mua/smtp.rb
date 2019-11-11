@@ -1,4 +1,4 @@
-module ASMail::SMTP
+module Mua::SMTP
 end
 
 require_relative 'smtp/client'

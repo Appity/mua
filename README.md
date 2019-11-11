@@ -1,13 +1,14 @@
-# asmail
+# Mua
 
-An asynchronous mail library compatible with [Async](https://github.com/socketry/async).
+An asynchronous mail user agent (MUA) library built on
+[Ruby Async](https://github.com/socketry/async).
 
 ## Installation
 
 Add this line to your application's Gemfile:
 
 ```ruby
-gem 'asmail'
+gem 'mua'
 ```
 
 And then execute:
@@ -16,11 +17,11 @@ And then execute:
 
 Or install it yourself as:
 
-    $ gem install asmail
+    $ gem install mua
 
 ## Usage
 
-It's not usable yet.
+It's not usable yet. Maybe soon?
 
 ## Development
 
@@ -50,4 +51,4 @@ The gem is available as open source under the terms of the
 
 Everyone interacting in the Asmail project’s codebases, issue trackers, chat
 rooms and mailing lists is expected to follow the
-[code of conduct](https://github.com/tadman/asmail/blob/master/CODE_OF_CONDUCT.md).
+[code of conduct](https://github.com/postageapp/mua/blob/master/CODE_OF_CONDUCT.md).

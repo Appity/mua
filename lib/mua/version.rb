@@ -1,4 +1,4 @@
-module ASMail
+module Mua
   VERSION = File.readlines(File.expand_path('../../VERSION', __dir__)).first.chomp
 
   def self.version

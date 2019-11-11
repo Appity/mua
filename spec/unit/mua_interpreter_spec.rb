@@ -1,6 +1,6 @@
-RSpec.describe ASMail::Interpreter do
+RSpec.describe Mua::Interpreter do
   it 'can define an interpreter' do
-    interpreter = ASMail::Interpreter.new
+    interpreter = Mua::Interpreter.new
 
     expect(interpreter.state).to eq(:initialized)
   end

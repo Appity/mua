@@ -1,4 +1,4 @@
-module ASMail::IMAP
+module Mua::IMAP
 end
 
 require_relative 'imap/client'

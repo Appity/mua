@@ -2,24 +2,24 @@ lib = File.expand_path('lib', __dir__)
 
 $LOAD_PATH.unshift(lib) unless ($LOAD_PATH.include?(lib))
 
-require 'asmail/version'
+require 'mua/version'
 
 Gem::Specification.new do |spec|
-  spec.name = 'asmail'
-  spec.version = ASMail.version
+  spec.name = 'mua'
+  spec.version = Mua.version
   spec.authors = [ 'Scott Tadman' ]
   spec.email = [ 'tadman@postageapp.com' ]
 
-  spec.summary = %q{Ruby Async Mail Library}
-  spec.description = %q{Fiberized Mail Library for Ruby Async}
-  spec.homepage = 'https://github.com/postageapp/asmail'
+  spec.summary = %q{Ruby Async Mail User Agent}
+  spec.description = %q{Fiberized Mail User Agent Library for Ruby Async}
+  spec.homepage = 'https://github.com/postageapp/mua'
   spec.license = 'MIT'
 
   spec.metadata['allowed_push_host'] = 'https://rubygems.org/'
 
   spec.metadata['homepage_uri'] = spec.homepage
-  spec.metadata['source_code_uri'] = 'https://github.com/postageapp/asmail'
-  spec.metadata['changelog_uri'] = 'https://github.com/postageapp/asmail/CHANGELOG.md'
+  spec.metadata['source_code_uri'] = 'https://github.com/postageapp/mua'
+  spec.metadata['changelog_uri'] = 'https://github.com/postageapp/mua/CHANGELOG.md'
 
   # Specify which files should be added to the gem when it is released.
   # The `git ls-files -z` loads the files in the RubyGem that have been added into git.
@@ -31,6 +31,7 @@ Gem::Specification.new do |spec|
   spec.require_paths = %w[ lib ]
 
   spec.add_dependency 'async'
+  spec.add_dependency 'async-io'
 
   spec.add_development_dependency 'bundler'
   spec.add_development_dependency 'rake'

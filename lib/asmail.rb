@@ -5,6 +5,8 @@ module ASMail
   end
 end
 
+require_relative 'asmail/interpreter'
+
 require_relative 'asmail/imap'
 require_relative 'asmail/smtp'
 require_relative 'asmail/socks5'

@@ -14,7 +14,7 @@ class Mua::Interpreter::StateProxy
   
   # Defines a parser specification.
   def parse(spec = nil, &block)
-    @options[:parser] = Remailer::Interpreter.create_parser_for_spec(spec, &block)
+    @options[:parser] = Mua::Interpreter.create_parser_for_spec(spec, &block)
   end
   
   # Defines a block that will execute when the state is entered.

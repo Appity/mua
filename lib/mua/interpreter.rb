@@ -110,13 +110,12 @@ class Mua::Interpreter
   # Defines a parser for this interpreter. The supplied block is executed in
   # the context of a parser instance.
   def self.parse(spec = nil, &block)
-    # FIX: @parse = ??? assignment?
-    @parse = create_parser_for_spec(spec, &block)
+    @parser = create_parser_for_spec(spec, &block)
   end
   
   # Assigns the default interpreter.
   def self.default(&block)
-    @default = block if (block_given?)
+    @default_interpreter = block if (block_given?)
   end
 
   # Assigns the error handler for when a specific interpretation could not be
@@ -127,7 +126,7 @@ class Mua::Interpreter
   
   # Returns the parser used when no state-specific parser has been defined.
   def self.default_parser
-    @default_parser ||=
+    @parser ||=
       if (superclass.respond_to?(:default_parser))
         superclass.default_parser
       else
@@ -168,14 +167,14 @@ class Mua::Interpreter
   # If a block is supplied, the interpreter object is supplied as an argument
   # to give the caller an opportunity to perform any initial configuration
   # before the first state is entered.
-  def initialize(options = nil)
-    @delegate = (options and options[:delegate])
+  def initialize(delegate: nil, state: nil)
+    @delegate = delegate
     @state = nil
     @error = nil
     
     yield(self) if (block_given?)
     
-    enter_state(options && options[:state] || self.class.initial_state)
+    enter_state(state || self.class.initial_state)
   end
   
   # Enters the given state. Will call the appropriate leave_state trigger if
@@ -213,9 +212,7 @@ class Mua::Interpreter
   # The default parser simply accepts everything but this can be re-defined
   # using the class-level parse method.
   def parser
-    config = self.class.states[@state]
-    
-    config and config[:parser] or self.class.default_parser
+    self.class.states.dig(@state, :parser) or self.class.default_parser
   end
 
   # Processes a given input string into interpretable tokens, processes these
@@ -239,8 +236,7 @@ class Mua::Interpreter
   # block defined.
   def interpret(*args)
     object = args[0]
-    config = self.class.states[@state]
-    interpreters = (config and config[:interpret])
+    interpreters = self.class.states.dig(@state, :interpret)
 
     if (interpreters)
       match_result = nil

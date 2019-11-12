@@ -1,11 +1,13 @@
-require 'mua/version'
-
 module Mua
   class Error < StandardError
   end
 end
 
+require_relative 'mua/version'
+
 require_relative 'mua/constants'
+require_relative 'mua/connection'
+require_relative 'mua/email_address'
 require_relative 'mua/interpreter'
 
 require_relative 'mua/imap'

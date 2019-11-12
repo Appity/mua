@@ -5,6 +5,7 @@ module Mua
   end
 end
 
+require_relative 'mua/constants'
 require_relative 'mua/interpreter'
 
 require_relative 'mua/imap'

@@ -39,7 +39,7 @@ RSpec.describe Mua::State::Proxy do
     expect(state.parser).to be_kind_of(Proc)
     expect(state.enter).to be_an_array_of(Proc)
     expect(state.leave).to be_an_array_of(Proc)
-    expect(state.default).to be_an_array_of(Proc)
+    expect(state.default).to be_kind_of(Proc)
     expect(state.interpret).to be_an_array_of(Array)
     expect(state.interpret.length).to eq(2)
     expect(state.terminate).to be_an_array_of(Proc)

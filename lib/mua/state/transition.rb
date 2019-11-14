@@ -1,29 +1,19 @@
-require_relative '../attr_boolean'
-
-class Mua::State::Context
+class Mua::State::Transition
   # == Constants ============================================================
   
   # == Extensions ===========================================================
-
-  extend Mua::AttrBoolean
-
+  
   # == Properties ===========================================================
 
-  attr_accessor :task
-  attr_accessor :state
-  attr_boolean :terminated
-  
+  attr_reader :target
+  attr_reader :state
+ 
   # == Class Methods ========================================================
   
   # == Instance Methods =====================================================
 
-  def initialize(task: nil, state: nil)
-    @task = task
+  def initialize(target: nil, state: )
+    @target = target
     @state = state
-    @terminated = false
-  end
-
-  def transition!(target: nil, state:)
-    Mua::State::Transition.new(target: target, state: state)
   end
 end

@@ -1,67 +1,4 @@
-class SMTPDelegate
-  attr_accessor :options, :protocol, :active_message
-  attr_accessor :tls_support
-  
-  def initialize(options = { })
-    @sent = [ ]
-    @options = options
-    @protocol = :smtp
-    @started_tls = false
-    @tls_support = nil
-    @closed = false
-  end
-  
-  def hostname
-    'localhost.local'
-  end
-  
-  def requires_authentication?
-    !!@options[:username]
-  end
-  
-  def use_tls?
-    !!@options[:use_tls]
-  end
-  
-  def send_line(data  = '')
-    @sent << data
-  end
-  
-  def start_tls
-    @started_tls = true
-  end
-  
-  def started_tls?
-    !!@started_tls
-  end
-  
-  def tls_support?
-    !!@tls_support
-  end
-  
-  def close_connection
-    @closed = true
-  end
-  
-  def closed?
-    !!@closed
-  end
-  
-  def clear!
-    @sent = [ ]
-  end
-  
-  def size
-    @sent.size
-  end
-  
-  def read
-    @sent.shift
-  end
-  
-  def method_missing(*args)
-  end
-end
+require_relative '../support/smtp_delegate'
 
 RSpec.describe Mua::SMTP::Client::Interpreter do
   it 'can split simple replies' do
@@ -71,7 +8,7 @@ RSpec.describe Mua::SMTP::Client::Interpreter do
       'OK' => nil,
       '100-Example' => [ 100, 'Example', :continued ]
     ) do |reply|
-      Mua::SMTP::Client::Interpreter.split_reply(reply)
+      Mua::SMTP::Client::Interpreter.unpack_reply(reply)
     end
   end
 
@@ -107,9 +44,10 @@ RSpec.describe Mua::SMTP::Client::Interpreter do
   
   it '#encode_authentication can encode username/password pairs correctly' do
     expect_mapping(
-      %w[ tester tester ] => 'AHRlc3RlcgB0ZXN0ZXI='
+      %w[ tester tester ] => 'AHRlc3RlcgB0ZXN0ZXI=',
+      %w[ username password ] => 'AHVzZXJuYW1lAHBhc3N3b3Jk'
     ) do |username, password|
-      Mua::SMTP::Client::Interpreter.encode_authentication(username, password)
+      Mua::SMTP::Client::Interpreter.encode_auth(username, password)
     end
   end
 
@@ -117,28 +55,6 @@ RSpec.describe Mua::SMTP::Client::Interpreter do
     interpreter = Mua::SMTP::Client::Interpreter.new
     
     expect(interpreter.state).to eq(:initialized)
-  end
-  
-  context 'SMTPDelegate' do
-    it 'has simple defaults' do
-      delegate = SMTPDelegate.new
-
-      expect(delegate).to_not be_closed
-      expect(delegate.read).to be(nil)
-      expect(delegate.size).to eq(0)
-    end
-
-    it 'can have options set' do
-      delegate = SMTPDelegate.new(use_tls: true)
-
-      expect(delegate.use_tls?).to be(true)
-      expect(delegate.requires_authentication?).to be(false)
-
-      delegate = SMTPDelegate.new(username: 'test@example.com', password: 'tester')
-
-      expect(delegate.use_tls?).to be(false)
-      expect(delegate.requires_authentication?).to be(true)
-    end
   end
 
   it 'supports standard SMTP connections using HELO' do

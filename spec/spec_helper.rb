@@ -30,3 +30,13 @@ RSpec.configure do |config|
 
   config.include ExpectMappingHelper
 end
+
+RSpec::Matchers.define :be_an_array_of do |expected|
+  match do |actual|
+    actual.map(&:class).uniq == [ expected ]
+  end
+
+  failure_message do |actual|
+    "expected #{actual} to be composed of only #{expected} objects"
+  end
+end

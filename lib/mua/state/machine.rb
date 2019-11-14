@@ -1,27 +1,131 @@
-require_relative 'state'
+require 'async'
+require_relative '../state'
 
-class Mua::Interpreter < Mua::State::Machine
+class Mua::State::Machine < Mua::State
   # == Constants ============================================================
+
+  STATE_METHOD_RX = /\Astate__/.freeze
+  STATE_METHOD_PREFIX = 'state__'.freeze
+
+  STATE_INITIAL_DEFAULT = :initialized
+  STATE_FINAL_DEFAULT = :terminated
 
   # == Exceptions ===========================================================
   
-  # == Properties ===========================================================
+  class DefinitionException < Exception
+  end
   
-  attr_reader :delegate
+  # == Properties ===========================================================
+
+  attr_reader :state
+  attr_reader :error
 
   # == Class Methods ========================================================
 
+  def self.label(label)
+    define_method(:label) do
+      label
+    end
+  end
+  
+  # Defines the initial state.
+  def self.initial_state(state)
+    define_method(:initial_state) do
+      state
+    end
+  end
+
+  # Defines a new state for this class. A block will be executed in the
+  # context of a StateProxy that is used to provide a simple interface to
+  # the underlying options. A block can contain calls to enter and leave,
+  # or default, which do not require arguments, or interpret, which requries
+  # at least one argument that will be the class-specific object to interpret.
+  # Other paramters may be supplied by the class.
+  def self.state(name, machine = nil, &block)
+    state_instance = Mua::State.new(&block)
+
+    define_method(:"#{STATE_METHOD_PREFIX}#{name}") do
+      state_instance
+    end
+  end
+  
+  # Defines a parser for this interpreter. The supplied block is executed in
+  # the context of a parser instance.
+  def self.parse(**spec, &block)
+    @parser = nil # FIX: create_parser_for_spec(**spec, &block)
+  end
+  
+  # Assigns the default interpreter.
+  def self.default(&block)
+    @default_interpreter = block if (block_given?)
+  end
+
+  # Assigns the error handler for when a specific interpretation could not be
+  # found and a default was not specified.
+  def self.on_error(&block)
+    @on_error = block
+  end
+  
+  # Returns the parser used when no state-specific parser has been defined.
+  def self.default_parser
+    @parser ||=
+      if (superclass.respond_to?(:default_parser))
+        superclass.default_parser
+      else
+        -> (s) do
+          s.read
+        end
+      end
+  end
+  
+  # Returns the current default_interpreter.
+  def self.default_interpreter
+    @default_interpreter ||=
+      if (superclass.respond_to?(:default_interpreter))
+        superclass.default_interpreter
+      else
+        nil
+      end
+  end
+  
+  # Returns the defined error handler
+  def self.on_error_handler
+    @on_error_handler ||=
+      if (superclass.respond_to?(:on_error_handler))
+        superclass.on_error_handler
+      else
+        nil
+      end
+  end
+
+  def self.states_defined
+    self.instance_methods.grep(STATE_METHOD_RX).map do |method_name|
+      method_name.to_s.sub(STATE_METHOD_RX, '').to_sym
+    end
+  end
+
   # == Instance Methods =====================================================
 
-  def initialize(context: nil, state: nil)
-    @stream = stream
-    @delegate = delegate
-    @state = state || self.class.initial_state
+  # Creates a new state machine. Options include:
+  # * :task => The Async task to use for fiber control
+  # * :state => What the initial state should be. The default is :initalized
+  # If a block is supplied, the interpreter object is supplied as an argument
+  # to give the caller an opportunity to perform any initial configuration
+  # before the first state is entered.
+  def initialize(state: nil, task:)
+    @task = task
+    @state = state || self.initial_state
     @error = nil
     
     yield(self) if (block_given?)
     
     enter_state(state)
+  end
+
+  # Defines the initial state. Can be re-declared in subclasses or overridden
+  # with the class method initial_state(state)
+  def initial_state
+    :initialized
   end
 
     # Returns the states that are defined as a has with their associated
@@ -31,7 +135,7 @@ class Mua::Interpreter < Mua::State::Machine
   end
 
   def states_empty?
-    self.states == Interpreter.states_defined
+    self.states == StateMachine.states_defined
   end
   
   # Returns true if a given state is defined, false otherwise.
@@ -179,16 +283,6 @@ class Mua::Interpreter < Mua::State::Machine
   end
   
 protected
-  def delegate_call(method, *args)
-    @delegate and @delegate.respond_to?(method) and @delegate.send(method, *args)
-  end
-  
-  def delegate_assign(property, value)
-    method = :"#{property}="
-    
-    @delegate and @delegate.respond_to?(method) and @delegate.send(method, value)
-  end
-
   def leave_state(state)
     trigger_callbacks(state, :leave)
   end

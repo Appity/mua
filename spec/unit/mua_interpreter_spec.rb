@@ -44,8 +44,8 @@ RSpec.describe Mua::Interpreter do
       end
     end
     
-    parse(/\A.*?\r?\n/) do |data|
-      data.chomp
+    parse(match: /\A.*?\r?\n/, chomp: true) do |data|
+      data
     end
     
     default do |line|
@@ -54,7 +54,7 @@ RSpec.describe Mua::Interpreter do
   end
   
   class NullDelimitedInterpreter < LineInterpreter
-    parse(/\A.*?\0/) do |data|
+    parse(match: /\A.*?\0/) do |data|
       data.sub(/\0\z/, '')
     end
   end
@@ -185,7 +185,7 @@ RSpec.describe Mua::Interpreter do
   end
   
   it 'can process line-delimited data' do
-    interpreter = LineInterpreter.new
+    interpreter = LineInterpreter.new()
 
     expect(interpreter.lines).to eq([ ])
     

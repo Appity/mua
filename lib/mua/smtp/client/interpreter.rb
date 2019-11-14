@@ -1,7 +1,10 @@
+require_relative '../../constants'
+
 class Mua::SMTP::Client::Interpreter < Mua::Interpreter
   # == Constants ============================================================
   
-  include Mua::Constants
+  CRLF = Mua::Constants::CRLF
+  CRLF_DELIMITER_REGEXP = Mua::Constants::CRLF_DELIMITER_REGEXP
 
   # == Properties ===========================================================
 
@@ -9,13 +12,13 @@ class Mua::SMTP::Client::Interpreter < Mua::Interpreter
   
   # Expands a standard SMTP reply into three parts: Numerical code, message
   # and a boolean indicating if this reply is continued on a subsequent line.
-  def self.split_reply(reply)
-    reply.match(/^(\d+)([ \-])(.*)/) and [ $1.to_i, $3, $2 == '-' ? :continued : nil ].compact
+  def self.unpack_reply(reply)
+    reply.match(/\A(\d+)([ \-])(.*)/) and [ $1.to_i, $3, $2 == '-' ? :continued : nil ].compact
   end
 
   # Encodes the given user authentication paramters as a Base64-encoded
   # string as defined by RFC4954
-  def self.encode_authentication(username, password)
+  def self.encode_auth(username, password)
     base64("\0#{username}\0#{password}")
   end
   
@@ -31,12 +34,14 @@ class Mua::SMTP::Client::Interpreter < Mua::Interpreter
   end
   
   # == State Mapping ========================================================
+
+  label('SMTP')
   
-  parse(LINE_REGEXP) do |data|
-    split_reply(data.chomp)
+  parse(match: CRLF_DELIMITER_REGEXP, chomp: true) do |data|
+    unpack_reply(data.chomp)
   end
   
-  state :initialized do
+  state(:initialized) do
     enter do
       @tls = false
     end
@@ -69,7 +74,7 @@ class Mua::SMTP::Client::Interpreter < Mua::Interpreter
     end
   end
   
-  state :helo do
+  state(:helo) do
     enter do
       delegate.send_line("HELO #{delegate.hostname}")
     end
@@ -83,7 +88,7 @@ class Mua::SMTP::Client::Interpreter < Mua::Interpreter
     end
   end
   
-  state :ehlo do
+  state(:ehlo) do
     enter do
       delegate.send_line("EHLO #{delegate.hostname}")
     end
@@ -124,7 +129,7 @@ class Mua::SMTP::Client::Interpreter < Mua::Interpreter
     end
   end
   
-  state :starttls do
+  state(:starttls) do
     enter do
       delegate.send_line("STARTTLS")
     end
@@ -142,9 +147,14 @@ class Mua::SMTP::Client::Interpreter < Mua::Interpreter
     end
   end
 
-  state :auth do
+  state(:auth) do
     enter do
-      delegate.send_line("AUTH PLAIN #{self.class.encode_authentication(delegate.options[:username], delegate.options[:password])}")
+      delegate.send_line('AUTH PLAIN %s' % [
+        self.class.encode_auth(
+          delegate.options[:username],
+          delegate.options[:password]
+        )
+      ])
     end
     
     interpret(235) do
@@ -163,7 +173,7 @@ class Mua::SMTP::Client::Interpreter < Mua::Interpreter
     end
   end
   
-  state :established do
+  state(:established) do
     enter do
       delegate.connect_notification(true)
       
@@ -171,7 +181,7 @@ class Mua::SMTP::Client::Interpreter < Mua::Interpreter
     end
   end
   
-  state :ready do
+  state(:ready) do
     enter do
       delegate.after_ready
     end
@@ -182,13 +192,13 @@ class Mua::SMTP::Client::Interpreter < Mua::Interpreter
     end
   end
   
-  state :send do
+  state(:send) do
     enter do
       enter_state(:mail_from)
     end
   end
   
-  state :mail_from do
+  state(:mail_from) do
     enter do
       if (delegate.active_message)
         delegate.send_line("MAIL FROM:<#{delegate.active_message[:from]}>")
@@ -209,7 +219,7 @@ class Mua::SMTP::Client::Interpreter < Mua::Interpreter
     end
   end
   
-  state :re_helo do
+  state(:re_helo) do
     enter do
       delegate.send_line("HELO #{delegate.hostname}")
     end
@@ -233,7 +243,7 @@ class Mua::SMTP::Client::Interpreter < Mua::Interpreter
     end
   end
   
-  state :rcpt_to do
+  state(:rcpt_to) do
     enter do
       if (delegate.active_message)
         delegate.send_line("RCPT TO:<#{delegate.active_message[:to]}>")
@@ -264,7 +274,7 @@ class Mua::SMTP::Client::Interpreter < Mua::Interpreter
     end
   end
   
-  state :data do
+  state(:data) do
     enter do
       delegate.send_line("DATA")
     end
@@ -274,7 +284,7 @@ class Mua::SMTP::Client::Interpreter < Mua::Interpreter
     end
   end
   
-  state :sending do
+  state(:sending) do
     enter do
       data = delegate.active_message[:data]
 
@@ -297,13 +307,13 @@ class Mua::SMTP::Client::Interpreter < Mua::Interpreter
     end
   end
   
-  state :sent do
+  state(:sent) do
     enter do
       enter_state(:ready)
     end
   end
   
-  state :quit do
+  state(:quit) do
     enter do
       delegate.send_line("QUIT")
     end
@@ -318,13 +328,13 @@ class Mua::SMTP::Client::Interpreter < Mua::Interpreter
     end
   end
   
-  state :terminated do
+  state(:terminated) do
     enter do
-      delegate.close_connection
+      delegate.close
     end
   end
   
-  state :reset do
+  state(:reset) do
     enter do
       delegate.send_line("RSET")
     end
@@ -334,7 +344,7 @@ class Mua::SMTP::Client::Interpreter < Mua::Interpreter
     end
   end
   
-  state :noop do
+  state(:noop) do
     enter do
       delegate.send_line("NOOP")
     end
@@ -358,10 +368,6 @@ class Mua::SMTP::Client::Interpreter < Mua::Interpreter
 
   # == Instance Methods =====================================================
 
-  def label
-    'SMTP'
-  end
-  
   def close
     if (@state == :ready)
       enter_state(:quit)
@@ -369,6 +375,7 @@ class Mua::SMTP::Client::Interpreter < Mua::Interpreter
   end
   
   def handle_reply_continuation(reply_code, reply_message, continues)
+    # FIX: Convert to while or loop
     @reply_message ||= ''
     
     if (preamble = @reply_message.split(/\s/).first)

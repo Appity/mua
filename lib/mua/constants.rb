@@ -2,6 +2,7 @@ module Mua::Constants
   # == Constants ============================================================
   
   LINE_REGEXP = /\A.*?\r?\n/.freeze
+  CRLF_DELIMITER_REGEXP = /\r?\n/.freeze
   CRLF = "\r\n".freeze
   
   SERVICE_PORT = {

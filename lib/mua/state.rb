@@ -37,9 +37,11 @@ class Mua::State
     yield(self) if (block_given?)
   end
 
-  def call(context, *args)
-    branch, *args = @parser ? @parser.call(context, *args) : args
+  def run!(context, *args)
+    self.call(context, *args).to_a
+  end
 
+  def call(context, *args)
     Enumerator.new do |y|
       terminated = false
 
@@ -50,14 +52,18 @@ class Mua::State
         # When a state transition occurs in the enter call, skip processing.
         context.state = result.state
       else
-        action = @interpret.find do |match, _proc|
-          match === branch
-        end&.dig(1) || default
-        
-        case (result = dynamic_call(action, context, *args))
-        when Enumerator
-          result.each do |event|
-            y << event
+        loop do
+          branch, *args = @parser ? @parser.call(context, *args) : args
+  
+          action = @interpret.find do |match, _proc|
+            match === branch
+          end&.dig(1) || default
+          
+          case (result = dynamic_call(action, context, *args))
+          when Enumerator
+            result.each do |event|
+              y << event
+            end
           end
         end
       end

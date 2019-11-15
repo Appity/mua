@@ -180,4 +180,45 @@ RSpec.describe Mua::State do
       ])
     end
   end
+
+  it 'can be used to parse out simple inputs', focus: true do
+    input_context = Mua::State::Context.with_attributes(
+      input: nil,
+      parts: -> () { [ ] }
+    )
+
+    state = Mua::State.define do
+      parse do |context|
+        context.input.split(/\s*\b/)
+      end
+
+      interpret(/[!\.\?]/) do |context, punctuation|
+        context.parts << { punctuation: punctuation }
+
+        context.transition!(state: :finished)
+      end
+
+      interpret(/\w+/) do |context, word|
+        context.parts << { word: word }
+      end
+
+      default do |context|
+        context.parts << { fail: true }
+
+        context.transition!(state: :finished)
+      end
+    end
+
+    context = input_context.new(input: 'This will not stand!')
+
+    events = state.run!(context)
+
+    expect(context.parts).to match_array([
+      { word: 'this' },
+      { word: 'will' },
+      { word: 'not' },
+      { word: 'stand' },
+      { punctuation: '!' }
+    ])
+  end
 end

@@ -56,6 +56,14 @@ class Mua::State::Machine < Mua::State
     @__state ||= ->(name) { @interpret.find { |k, _p| k == name }&.dig(1) }
   end
 
+  def run!(context = nil)
+    self.call(context || Mua::State::Context.new).to_a
+  end
+
+  def run(context = nil)
+    self.call(context || Mua::State::Context.new)
+  end
+
   def call(context, *args)
     context.state ||= @interpret.dig(0, 0)
 

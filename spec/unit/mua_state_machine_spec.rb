@@ -60,12 +60,14 @@ RSpec.describe Mua::State::Machine do
     end
 
     it 'with long state maps' do
-      count = 5000
+      count = 1000
+      entered = [ ]
 
       machine = Mua::State::Machine.define do
         count.times do |i|
           state(i) do
             enter do |context|
+              entered << i
               context.transition!(state: i + 1)
             end
           end
@@ -80,7 +82,9 @@ RSpec.describe Mua::State::Machine do
 
       expect(machine.states.length).to eq(count + 3)
 
-      # events = 
+      events = machine.run!
+
+      expect(entered).to match_array((0...count).to_a)
     end
   end
 

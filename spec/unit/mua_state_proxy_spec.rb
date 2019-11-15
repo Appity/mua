@@ -55,4 +55,19 @@ RSpec.describe Mua::State::Proxy do
     expect(state.terminate).to match_array([ true ])
     expect(state).to be_terminal
   end
+
+  it 'can define sub-states' do
+    state = Mua::State.new 
+    substate = nil
+
+    proxy = Mua::State::Proxy.new(state) do |p|
+      substate = p.state(:example) do |s|
+        s.enter do |context|
+          context.transition!(state: :finished)
+        end
+      end
+    end
+
+    expect(substate).to be_kind_of(Mua::State)
+  end
 end

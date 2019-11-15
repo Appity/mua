@@ -11,10 +11,10 @@ class Mua::State::Proxy
     case (proc&.arity)
     when nil
       # Block is optional so skip calling it
-    when 1
-      proc.call(self)
     when 0
       instance_eval(&proc)
+    when 1
+      proc.call(self)
     else
       raise ArgumentError, "Block should take 0..1 arguments"
     end
@@ -34,6 +34,14 @@ class Mua::State::Proxy
   # condition is met.
   def interpret(response, &proc)
     @state.interpret << [ response, proc ]
+  end
+
+  def state(name, &block)
+    Mua::State.new(name) do |state|
+      Mua::State::Proxy.new(state, &block)
+
+      @state.interpret << [ name, state ]
+    end
   end
   
   # Defines a default behavior that will trigger in the event no interpreter

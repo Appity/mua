@@ -12,6 +12,16 @@ class Mua::State
   attr_reader :interpret
   attr_reader :terminate
 
+  # FIX: Add on_error or on_exception handlers
+
+  # == Class Methods ========================================================
+
+  def self.define(name = nil, &block)
+    new(name) do |state|
+      Mua::State::Proxy.new(state, &block)
+    end
+  end
+
   # == Instance Methods =====================================================
   
   # Creates a new state.
@@ -35,16 +45,20 @@ class Mua::State
 
       y << [ context, self, :enter ]
 
-      self.trigger(context, @enter)
-
-      action = @interpret.find do |match, _proc|
-        match === branch
-      end&.dig(1) || default
-      
-      case (result = dynamic_call(action, context, *args))
-      when Enumerator
-        result.each do |event|
-          y << event
+      case (result = self.trigger(context, @enter))
+      when Mua::State::Transition
+        # When a state transition occurs in the enter call, skip processing.
+        context.state = result.state
+      else
+        action = @interpret.find do |match, _proc|
+          match === branch
+        end&.dig(1) || default
+        
+        case (result = dynamic_call(action, context, *args))
+        when Enumerator
+          result.each do |event|
+            y << event
+          end
         end
       end
 
@@ -83,25 +97,35 @@ protected
       proc.call(context, *args)
     end
   end
+  
 
   def trigger(context, procs)
-    procs.each do |proc|
-      case (proc)
-      when true
-        # No-op call, skipped
-      when Proc
-        case (proc.arity)
-        when 0
-          proc.call
-        when 1
-          proc.call(context)
-        else
-          raise ArgumentError, "Handler Proc should take 0 or 1 arguments."
-        end
+    procs.inject(nil) do |_, proc|
+      case (result = trigger_call(context, proc))
+      when Mua::State::Transition
+        break result
       else
-        raise ArgumentError, "Non-Proc handler supplied."
+        result
       end
     end
+  end
+end
+
+def trigger_call(context, proc)
+  case (proc)
+  when true
+    # No-op call, skipped
+  when Proc
+    case (proc.arity)
+    when 0
+      context.instance_eval(&proc)
+    when 1
+      proc.call(context)
+    else
+      raise ArgumentError, "Handler Proc should take 0 or 1 arguments."
+    end
+  else
+    raise ArgumentError, "Non-Proc handler supplied."
   end
 end
 

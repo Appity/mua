@@ -38,7 +38,7 @@ class Mua::SMTP::Client::Interpreter < Mua::Interpreter
   label('SMTP')
   
   parse(match: CRLF_DELIMITER_REGEXP, chomp: true) do |data|
-    unpack_reply(data.chomp)
+    self.class.unpack_reply(data.chomp)
   end
   
   state(:initialized) do

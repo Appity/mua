@@ -18,59 +18,48 @@ class Mua::State::Context
   def self.with_attributes(*attr_list, **attr_spec)
     type = Class.new(self)
 
-    attrs = (
-      attr_list.map do |attr_name|
-        type.send(:attr_reader, attr_name)
-        
-        [ attr_name, { 
-          variable: :"@#{attr_name}",
-          default: nil
-        } ]
-      end + attr_spec.map do |attr_name, attr_value|
-        defaults = {
-          variable: :"@#{attr_name}",
-          default: nil
-        }
+    attrs = Helpers.remap_attr_list_and_spec(attr_list, attr_spec).map do |attr_name, attr_value|
+      var = attr_value[:variable]
 
-        case (attr_value)
-        when Hash
-          attr_value = defaults.merge(attr_value)
-        else
-          attr_value, default_value = defaults, attr_value
-          attr_value[:default] = default_value
+      if (attr_value[:boolean])
+        type.send(:define_method, :"#{attr_name}?") do
+          instance_variable_get(var)
         end
 
-        var = attr_value[:variable]
+        type.send(:define_method, :"#{attr_name}=") do |v|
+          instance_variable_set(var, !!v)
+        end
 
-        if (attr_value[:boolean])
-          type.send(:define_method, :"#{attr_name}?") do
+        type.send(:define_method, :"#{attr_name}!") do |&block|
+          return false if (instance_variable_get(var))
+
+          block&.call
+
+          instance_variable_set(var, true)
+        end
+      elsif (attr_value[:readonly])
+        if ( :"@#{attr_name}" == var)
+          type.send(:attr_reader, attr_name)
+        else
+          type.send(:define_method, attr_name) do
             instance_variable_get(var)
           end
-
-          type.send(:define_method, :"#{attr_name}=") do |v|
-            instance_variable_set(var, !!v)
-          end
-
-          type.send(:define_method, :"#{attr_name}!") do |&block|
-            return false if (instance_variable_get(var))
-
-            block&.call
-
-            instance_variable_set(var, true)
-          end
+        end
+      else
+        if (:"@#{attr_name}" == var)
+          type.send(:attr_accessor, attr_name)
         else
-          if (defaults[:variable] == var)
-            type.send(:attr_reader, attr_name)
-          else
-            type.send(:define_method, attr_name) do
-              instance_variable_get(var)
-            end
+          type.send(:define_method, attr_name) do
+            instance_variable_get(var)
+          end
+          type.send(:define_method, :"#{attr_name}=") do |v|
+            instance_variable_set(var, v)
           end
         end
-
-        [ attr_name, attr_value ]
       end
-    ).to_h
+
+      [ attr_name, attr_value ]
+    end.to_h
 
     type.send(:define_method, :initialize) do |**args|
       super()
@@ -106,4 +95,10 @@ class Mua::State::Context
   def transition!(target: nil, state:)
     Mua::State::Transition.new(target: target, state: state)
   end
+
+  def finished!
+    Mua::State::Transition.new(state: :finished)
+  end
 end
+
+require_relative 'context/helpers'

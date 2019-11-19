@@ -46,29 +46,36 @@ class Mua::State
     #           the required number of arguments.
     @interpreter ||= begin
       b = binding
-      default = @default
 
-      unless (@default or @interpret.any?)
-        return -> (context, branch, *args) { }
+      if (@interpret.any?)
+        default = @default
+
+        b.eval([
+          '-> (context, branch, *args) do',
+          'case (branch)',
+          *@interpret.map.with_index do |(match, block), i|
+            b.local_variable_set(:"__match_#{i}", block)
+
+            case (match)
+            when Regexp
+              "when %s\n__match_%d.call(context, *$~, *args)" % [ match.inspect, i ]
+            else
+              "when %s\n__match_%d.call(context, *args)" % [ match.inspect, i ]
+            end
+          end,
+          *(default ? [ 'else', 'default.call(context, branch, *args)' ] : [ ]),
+          'end',
+          'end'
+        ].join("\n"))
+      elsif (@default)
+        default = @default
+
+        -> (context, branch, *args) do
+          default.call(context, branch, *args)
+        end
+      else
+        -> (context, branch, *args) { }
       end
-
-      b.eval([
-        '-> (context, branch, *args) do',
-        'case (branch)',
-        *@interpret.map.with_index do |(match, block), i|
-          b.local_variable_set(:"__match_#{i}", block)
-
-          case (match)
-          when Regexp
-            "when %s\n__match_%d.call(context, *$~, *args)" % [ match.inspect, i ]
-          else
-            "when %s\n__match_%d.call(context, *args)" % [ match.inspect, i ]
-          end
-        end,
-        *(default ? [ 'else', 'default.call(context, branch, *args)' ] : [ ]),
-        'end',
-        'end'
-      ].join("\n"))
     end
   end
 

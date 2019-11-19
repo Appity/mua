@@ -20,7 +20,20 @@ RSpec.describe Mua::State do
   it 'can produce an interpreter block with branches and default' do
     state = Mua::State.new
 
-    state.interpret << [ 'example', -> (context) { 'example.out' } ]
+    state.interpret << [ 'example', -> (context) { 'example.caught' } ]
+    state.default = -> (context, branch) { '%s.out' % branch }
+
+    interpreter = state.interpreter
+
+    context = Mua::State::Context.new
+
+    expect(interpreter.call(context, 'example')).to eq('example.caught')
+    expect(interpreter.call(context, 'invalid')).to eq('invalid.out')
+  end
+
+  it 'can produce an interpreter block no branches but a default' do
+    state = Mua::State.new
+
     state.default = -> (context, branch) { '%s.out' % branch }
 
     interpreter = state.interpreter

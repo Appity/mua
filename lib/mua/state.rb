@@ -5,6 +5,7 @@ class Mua::State
 
   attr_reader :name
 
+  attr_accessor :preprocess
   attr_accessor :parser
   attr_accessor :default
   attr_reader :enter
@@ -27,6 +28,7 @@ class Mua::State
   # Creates a new state.
   def initialize(name = nil)
     @name = name
+    @preprocess = nil
     @parser = nil
     @enter = [ ]
     @leave = [ ]
@@ -37,43 +39,106 @@ class Mua::State
     yield(self) if (block_given?)
   end
 
-  def run!(context, *args)
-    self.call(context, *args).to_a
+  # Produces a case-statement that represents the branching behavior defined
+  # by the @interpret rule set.
+  def interpreter
+    # REFACTOR: This should do a quick check on the blocks to ensure they take
+    #           the required number of arguments.
+    @interpreter ||= begin
+      b = binding
+      default = @default
+
+      unless (@default or @interpret.any?)
+        return -> (context, branch, *args) { }
+      end
+
+      b.eval([
+        '-> (context, branch, *args) do',
+        'case (branch)',
+        *@interpret.map.with_index do |(match, block), i|
+          b.local_variable_set(:"__match_#{i}", block)
+
+          case (match)
+          when Regexp
+            "when %s\n__match_%d.call(context, *$~, *args)" % [ match.inspect, i ]
+          else
+            "when %s\n__match_%d.call(context, *args)" % [ match.inspect, i ]
+          end
+        end,
+        *(default ? [ 'else', 'default.call(context, branch, *args)' ] : [ ]),
+        'end',
+        'end'
+      ].join("\n"))
+    end
   end
 
-  def call(context, *args)
-    Enumerator.new do |y|
+  def run!(context)
+    self.call(context).to_a
+  end
+
+  def call(context)
+    Enumerator.new do |events|
       terminated = false
 
-      y << [ context, self, :enter ]
+      events << [ context, self, :enter ]
 
       case (result = self.trigger(context, @enter))
       when Mua::State::Transition
         # When a state transition occurs in the enter call, skip processing.
         context.state = result.state
       else
-        loop do
-          branch, *args = @parser ? @parser.call(context, *args) : args
+        case (result = @preprocess&.call(context))
+        when Mua::State::Transition
+          context.state = result.state
+        else
+          loop do
+            branch, *args = @parser ? @parser.call(context) : context.read
+
+            case (branch)
+            when nil
+              break
+            when Mua::State::Transition
+              context.state = branch.state
   
-          action = @interpret.find do |match, _proc|
-            match === branch
-          end&.dig(1) || default
-          
-          case (result = dynamic_call(action, context, *args))
-          when Enumerator
-            result.each do |event|
-              y << event
+              break
+            else
+              case (result = self.interpreter.call(context, branch, *args))
+              when Mua::State::Transition
+                context.state = result.state
+  
+                break
+              when Enumerator
+                result.each do |event|
+                  case (event)
+                  when Mua::State::Transition
+                    context.state = event.state
+  
+                    break
+                  else
+                    events << event
+                  end
+                end
+              end
             end
+  
+            case (input = context.input)
+            when Array
+              break if (input.empty?)
+            else
+              break if (input.nil?)
+            end
+
+            break if (context.terminated?)
           end
         end
       end
 
-      y << [ context, self, :leave ]
+      events << [ context, self, :leave ]
 
       self.trigger(context, @leave)
 
       if (@terminate.any? or context.terminated?)
-        y << [ context, self, :terminate ]
+        events << [ context, self, :terminate ]
 
         self.trigger(context, @terminate)
 
@@ -91,7 +156,7 @@ class Mua::State
   end
 
 protected
-  def dynamic_call(proc, context, *args)
+  def dynamic_call(proc, context)
     return unless (proc)
 
     case (proc.arity)
@@ -100,10 +165,9 @@ protected
     when 1
       proc.call(context)
     else
-      proc.call(context, *args)
+      raise ArgumentError, "Handler proc should take 0..1 arguments."
     end
   end
-  
 
   def trigger(context, procs)
     procs.inject(nil) do |_, proc|

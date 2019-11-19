@@ -93,8 +93,8 @@ module Mua::State::Context::Builder
   end
 
   def self.define_initialize!(type, attrs)
-    type.send(:define_method, :initialize) do |**args|
-      super()
+    type.send(:define_method, :initialize) do |task: nil, state: nil, input: nil, **args|
+      super(task: task, state: state, input: input)
 
       attrs.each do |name, meta|
         if (args.key?(name))

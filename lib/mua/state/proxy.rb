@@ -20,6 +20,11 @@ class Mua::State::Proxy
     end
   end
   
+  # Defines a preprocessor that runs after the enter phase but before parse
+  def preprocess(**spec, &proc)
+    @state.preprocess = Mua::Parser.read_stream(**spec, &proc)
+  end
+
   # Defines a parser specification.
   def parse(**spec, &proc)
     @state.parser = Mua::Parser.read_stream(**spec, &proc)

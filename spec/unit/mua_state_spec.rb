@@ -17,31 +17,72 @@ RSpec.describe Mua::State do
     expect(state.name).to eq(:example)
   end
 
-  it 'can have handlers populated manually' do
+  it 'can produce an interpreter block with branches and default' do
+    state = Mua::State.new
+
+    state.interpret << [ 'example', -> (context) { 'example.out' } ]
+    state.default = -> (context, branch) { '%s.out' % branch }
+
+    interpreter = state.interpreter
+
+    context = Mua::State::Context.new
+
+    expect(interpreter.call(context, 'example')).to eq('example.out')
+    expect(interpreter.call(context, 'invalid')).to eq('invalid.out')
+  end
+
+  it 'can produce an interpreter block with no definitions' do
+    state = Mua::State.new
+
+    interpreter = state.interpreter
+
+    context = Mua::State::Context.new
+
+    expect(interpreter.call(context, nil)).to be(nil)
+  end
+
+  it 'will capture regular expression matches' do
+    state = Mua::State.new
+
+    state.interpret << [
+      /([a-z]+)(\d+)/,
+      -> (context, _match, word, num) { [ word, num.to_i ] }
+    ]
+    
+    interpreter = state.interpreter
+
+    context = Mua::State::Context.new
+
+    expect(interpreter.call(context, 'test1')).to contain_exactly('test', 1)
+    expect(interpreter.call(context, 'catch22')).to contain_exactly('catch', 22)
+    expect(interpreter.call(context, 'busted')).to be(nil)
+  end
+
+  it 'can have handlers populated manually', focus: true do
     state = Mua::State.new
     ran = [ ]
 
-    state.parser = -> (context, input) {
+    state.parser = -> (context) {
       ran << :parser
 
-      input.to_s
+      context.input.shift&.to_s
     }
     state.enter << -> (context) { ran << :enter }
     state.leave << -> (context) { ran << :leave }
     state.interpret << [ 'example', -> (context) { ran << :example } ]
-    state.default = -> (context) { ran << :default }
+    state.default = -> (context, branch) { ran << :default }
     state.terminate << -> (context) { ran << :terminate }
 
-    context = Mua::State::Context.new
-    state.call(context, :example).to_a
+    context = Mua::State::Context.new(input: [ :example ])
+    state.run!(context)
 
-    expect(ran).to contain_exactly(:parser, :enter, :example, :leave, :terminate)
+    expect(ran).to contain_exactly(:enter, :parser, :example, :leave, :terminate)
 
     ran.clear
+    context.input = [ :not_example ]
+    state.run!(context)
 
-    state.call(context, :not_example).to_a
-
-    expect(ran).to contain_exactly(:parser, :enter, :default, :leave, :terminate)
+    expect(ran).to contain_exactly(:enter, :parser, :default, :leave, :terminate)
   end
 
   it 'can be terminal if terminate is defined' do
@@ -53,15 +94,13 @@ RSpec.describe Mua::State do
   end
 
   context 'parses input arguments' do
-    class ContextWithBranch <  Mua::State::Context
-      attr_accessor :branch
-    end
+    ContextWithBranch =  Mua::State::Context.with_attributes(:branch)
 
     it 'based on simple string input' do
       state = Mua::State.new
 
-      state.parser = -> (_context, input) do
-        input.to_s.upcase
+      state.parser = -> (context) do
+        context.read&.to_s&.upcase
       end
 
       state.interpret << [
@@ -75,32 +114,43 @@ RSpec.describe Mua::State do
         'SECONDARY',
         -> (context) do
           context.branch = :secondary
+          
           context.terminated!
         end
       ]
 
-      context = ContextWithBranch.new
+      context = ContextWithBranch.new(input: [ :primary ])
 
-      events = state.call(context, :primary).to_a
+      events = StateEventsHelper.reduce(
+        state.run!(context),
+        context: context,
+        state: state
+      )
 
-      expect(events).to match_array([
-        [ context, state, :enter ],
-        [ context, state, :leave ]
-      ])
-
+      expect(context.branch).to eq(:primary)
       expect(context).to_not be_terminated
 
-      context = ContextWithBranch.new
-
-      events = state.call(context, :secondary).to_a
-
       expect(events).to match_array([
-        [ context, state, :enter ],
-        [ context, state, :leave ],
-        [ context, state, :terminate ]
+        [ :context, :state, :enter ],
+        [ :context, :state, :leave ]
       ])
 
+      context = ContextWithBranch.new(input: [ :secondary ])
+
+      events = StateEventsHelper.reduce(
+        state.run!(context),
+        context: context,
+        state: state
+      )
+
+      expect(context.branch).to eq(:secondary)
       expect(context).to be_terminated
+
+      expect(events).to match_array([
+        [ :context, :state, :enter ],
+        [ :context, :state, :leave ],
+        [ :context, :state, :terminate ]
+      ])
     end
   end
 
@@ -110,7 +160,7 @@ RSpec.describe Mua::State do
 
       context = Mua::State::Context.new
 
-      events = state.call(context).to_a
+      events = state.run!(context)
 
       expect(events).to match_array([
         [ context, state, :enter ],
@@ -124,7 +174,7 @@ RSpec.describe Mua::State do
 
       context = Mua::State::Context.new
 
-      events = state.call(context).to_a
+      events = state.run!(context)
 
       expect(events).to match_array([
         [ context, state, :enter ],
@@ -135,15 +185,7 @@ RSpec.describe Mua::State do
   end
 
   context 'supports nested states' do
-    class TrackingContext < Mua::State::Context
-      attr_accessor :visited
-
-      def initialize(task: nil, state: nil)
-        super(task: task, state: state)
-
-        @visited = [ ]
-      end
-    end
+    TrackingContext = Mua::State::Context.with_attributes(visited: -> { [ ] })
 
     it 'hands off correctly to an inner State' do
       parent = Mua::State.new
@@ -154,22 +196,28 @@ RSpec.describe Mua::State do
       }
 
       substate = Mua::State.new
-      substate.default = -> (context) {
+      substate.enter << -> (context) {
         context.visited << :substate
       }
+      substate.interpret << [
+        :branch,
+        -> (context) {
+          context.visited << :branch
+        }
+      ]
 
       parent.interpret << [ :substate, substate ]
 
-      context = TrackingContext.new
+      context = TrackingContext.new(input: [ :substate, :branch ])
 
       events = StateEventsHelper.reduce(
-        parent.call(context, :substate),
+        parent.run!(context),
         context: context,
         parent: parent,
         substate: substate
       )
 
-      expect(context.visited).to contain_exactly(:parent, :substate)
+      expect(context.visited).to eq([ :parent, :substate, :branch ])
 
       expect(events).to match_array([
         [ :context, :parent, :enter ],
@@ -181,24 +229,23 @@ RSpec.describe Mua::State do
     end
   end
 
-  it 'can be used to parse out simple inputs', focus: true do
-    input_context = Mua::State::Context.with_attributes(
-      input: nil,
-      parts: -> () { [ ] }
-    )
-
+  it 'can be used to parse out simple inputs' do
     state = Mua::State.define do
-      parse do |context|
-        context.input.split(/\s*\b/)
+      preprocess do |context|
+        context.input = context.input.downcase.split(/\s*\b/)
       end
 
-      interpret(/[!\.\?]/) do |context, punctuation|
-        context.parts << { punctuation: punctuation }
+      parse do |context|
+        context.input.shift
+      end
+
+      interpret(/[!\.\?]/) do |context, match|
+        context.parts << { punctuation: match }
 
         context.transition!(state: :finished)
       end
 
-      interpret(/\w+/) do |context, word|
+      interpret(/(\w+)/) do |context, _match, word|
         context.parts << { word: word }
       end
 
@@ -209,7 +256,11 @@ RSpec.describe Mua::State do
       end
     end
 
-    context = input_context.new(input: 'This will not stand!')
+    context = Mua::State::Context.with_attributes(
+      parts: -> () { [ ] }
+    ).new
+
+    context.input = 'This will not stand!'
 
     events = state.run!(context)
 

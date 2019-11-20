@@ -14,11 +14,15 @@ RSpec.describe MockStream do
     expect(context.input).to be_kind_of(Async::IO::Stream)
   end
 
-  it 'can create a Mua::State::Context and StringIO pair' do
-    context, io = MockStream.context_io('example')
+  it 'can create a Mua::State::Context and writable IO pair' do
+    context, io = MockStream.context_writable_io
 
     expect(context).to be_kind_of(Mua::State::Context)
     expect(context.input).to be_kind_of(Async::IO::Stream)
-    expect(io).to be_kind_of(StringIO)
+    expect(io).to be_kind_of(IO)
+
+    io.write("example\n")
+
+    expect(context.input.read_until("\n", chomp: true)).to eq('example')
   end
 end

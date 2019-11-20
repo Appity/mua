@@ -115,5 +115,52 @@ RSpec.describe Mua::State::Context::Builder do
       expect(context).to be_boolean_value
       expect(executed).to eq(1)
     end
+
+    it 'can include a module in the generated class' do
+      inclusion = Module.new do
+        def demo
+          :demo
+        end
+      end
+
+      built = Mua::State::Context::Builder.class_with_attributes(
+        [ ],
+        includes: inclusion
+      )
+
+      expect(built).to be_kind_of(Class)
+      expect(built.ancestors).to include(inclusion)
+
+      instance = built.new
+
+      expect(instance).to respond_to(:demo)
+    end
+
+    it 'can include multiple modules in the generated class' do
+      inclusions = [
+        Module.new do
+          def a
+            :a
+          end
+        end,
+        Module.new do
+          def b
+            :b
+          end
+        end
+      ] 
+
+      built = Mua::State::Context::Builder.class_with_attributes(
+        [ ],
+        includes: inclusions
+      )
+
+      expect(built).to be_kind_of(Class)
+      expect(built.ancestors).to include(*inclusions)
+
+      instance = built.new
+
+      expect(instance).to respond_to(:a, :b)
+    end
   end
 end

@@ -8,6 +8,8 @@ module Mua::State::Context::Builder
       define_initial_state!(type, initial_state)
     end
 
+    includes = attr_spec.delete(:includes)
+
     attrs = remap_attrs(attr_list, attr_spec).map do |attr_name, attr_value|
       var = attr_value[:variable]
 
@@ -23,6 +25,15 @@ module Mua::State::Context::Builder
     end
 
     define_initialize!(type, attrs)
+
+    case (includes)
+    when Array
+      includes.each do |i|
+        type.include(i)
+      end
+    when Module
+      type.include(includes)
+    end
 
     type
   end

@@ -134,11 +134,9 @@ RSpec.describe Mua::State do
 
       context = ContextWithBranch.new(input: [ :primary ])
 
-      events = StateEventsHelper.reduce(
-        state.run!(context),
-        context: context,
-        state: state
-      )
+      events = StateEventsHelper.map_locals do
+        state.run!(context)
+      end
 
       expect(context.branch).to eq(:primary)
       expect(context).to_not be_terminated
@@ -150,11 +148,9 @@ RSpec.describe Mua::State do
 
       context = ContextWithBranch.new(input: [ :secondary ])
 
-      events = StateEventsHelper.reduce(
-        state.run!(context),
-        context: context,
-        state: state
-      )
+      events = StateEventsHelper.map_locals do
+        state.run!(context)
+      end
 
       expect(context.branch).to eq(:secondary)
       expect(context).to be_terminated
@@ -173,11 +169,14 @@ RSpec.describe Mua::State do
 
       context = Mua::State::Context.new
 
-      events = state.run!(context)
+      events = StateEventsHelper.map_locals do
+        state.run!(context)
+      end
 
       expect(events).to match_array([
-        [ context, state, :enter ],
-        [ context, state, :leave ]
+        [ :context, :state, :enter ],
+        [ :context, :state, :leave ],
+        [ :context, :state, :terminate ]
       ])
     end
 
@@ -187,12 +186,14 @@ RSpec.describe Mua::State do
 
       context = Mua::State::Context.new
 
-      events = state.run!(context)
+      events = StateEventsHelper.map_locals do
+        state.run!(context)
+      end
 
       expect(events).to match_array([
-        [ context, state, :enter ],
-        [ context, state, :leave ],
-        [ context, state, :terminate ]
+        [ :context, :state, :enter ],
+        [ :context, :state, :leave ],
+        [ :context, :state, :terminate ]
       ])
     end
   end
@@ -223,12 +224,9 @@ RSpec.describe Mua::State do
 
       context = TrackingContext.new(input: [ :substate, :branch ])
 
-      events = StateEventsHelper.reduce(
-        parent.run!(context),
-        context: context,
-        parent: parent,
-        substate: substate
-      )
+      events = StateEventsHelper.map_locals do
+        parent.run!(context)
+      end
 
       expect(context.visited).to eq([ :parent, :substate, :branch ])
 
@@ -248,7 +246,7 @@ RSpec.describe Mua::State do
         context.input = context.input.downcase.split(/\s*\b/)
       end
 
-      parse do |context|
+      parser do |context|
         context.input.shift
       end
 

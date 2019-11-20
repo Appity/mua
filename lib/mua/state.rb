@@ -1,6 +1,9 @@
 class Mua::State
   # == Constants ============================================================
 
+  INITIAL_DEFAULT = :initialize
+  FINAL_DEFAULT = :finished
+
   # == Properties ===========================================================
 
   attr_reader :name
@@ -20,7 +23,7 @@ class Mua::State
   def self.define(name = nil, &block)
     new(name) do |state|
       Mua::State::Proxy.new(state, &block)
-    end
+    end.tap(&:prepare)
   end
 
   # == Instance Methods =====================================================
@@ -39,12 +42,20 @@ class Mua::State
     yield(self) if (block_given?)
   end
 
+  def prepare
+    self.interpreter
+
+    self
+  end
+
   # Produces a case-statement that represents the branching behavior defined
   # by the @interpret rule set.
   def interpreter
     # REFACTOR: This should do a quick check on the blocks to ensure they take
     #           the required number of arguments.
     @interpreter ||= begin
+      self.prepare_for_interpreter!
+
       b = binding
 
       if (@interpret.any?)
@@ -80,10 +91,10 @@ class Mua::State
   end
 
   def run!(context)
-    self.call(context).to_a
+    self.run(context).to_a
   end
 
-  def call(context)
+  def run(context)
     Enumerator.new do |events|
       terminated = false
 
@@ -98,45 +109,7 @@ class Mua::State
         when Mua::State::Transition
           context.state = result.state
         else
-          loop do
-            branch, *args = @parser ? @parser.call(context) : context.read
-
-            case (branch)
-            when nil
-              break
-            when Mua::State::Transition
-              context.state = branch.state
-  
-              break
-            else
-              case (result = self.interpreter.call(context, branch, *args))
-              when Mua::State::Transition
-                context.state = result.state
-  
-                break
-              when Enumerator
-                result.each do |event|
-                  case (event)
-                  when Mua::State::Transition
-                    context.state = event.state
-  
-                    break
-                  else
-                    events << event
-                  end
-                end
-              end
-            end
-  
-            case (input = context.input)
-            when Array
-              break if (input.empty?)
-            else
-              break if (input.nil?)
-            end
-
-            break if (context.terminated?)
-          end
+          self.run_interior(events, context)
         end
       end
 
@@ -151,6 +124,51 @@ class Mua::State
 
         context.terminated! unless (context.terminated?)
       end
+    end
+  end
+  alias_method :call, :run
+
+  def run_interior(events, context)
+    loop do
+      branch, *args = @parser ? @parser.call(context) : context.read
+
+      case (branch)
+      when nil
+        context.terminated!
+
+        break
+      when Mua::State::Transition
+        context.state = branch.state
+
+        break
+      else
+        case (result = self.interpreter.call(context, branch, *args))
+        when Mua::State::Transition
+          context.state = result.state
+
+          break
+        when Enumerator
+          result.each do |event|
+            case (event)
+            when Mua::State::Transition
+              context.state = event.state
+
+              break
+            else
+              events << event
+            end
+          end
+        end
+      end
+
+      case (input = context.input)
+      when Array
+        break if (input.empty?)
+      else
+        break if (input.nil?)
+      end
+
+      break if (context.terminated?)
     end
   end
 
@@ -186,23 +204,27 @@ protected
       end
     end
   end
-end
 
-def trigger_call(context, proc)
-  case (proc)
-  when true
-    # No-op call, skipped
-  when Proc
-    case (proc.arity)
-    when 0
-      context.instance_eval(&proc)
-    when 1
-      proc.call(context)
+  def trigger_call(context, proc)
+    case (proc)
+    when true
+      # No-op call, skipped
+    when Proc
+      case (proc.arity)
+      when 0
+        context.instance_eval(&proc)
+      when 1
+        proc.call(context)
+      else
+        raise ArgumentError, "Handler Proc should take 0 or 1 arguments."
+      end
     else
-      raise ArgumentError, "Handler Proc should take 0 or 1 arguments."
+      raise ArgumentError, "Non-Proc handler supplied."
     end
-  else
-    raise ArgumentError, "Non-Proc handler supplied."
+  end
+
+  def prepare_for_interpreter!
+    # Implement in subclass to add additional behavior
   end
 end
 

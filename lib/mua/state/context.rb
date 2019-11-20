@@ -1,3 +1,4 @@
+require 'async/io/stream'
 require_relative '../attr_boolean'
 
 class Mua::State::Context
@@ -38,7 +39,14 @@ class Mua::State::Context
   # Reads an element out of the provided input array. Subclasses can redefine
   # this behavior to match the type of input object used.
   def read
-    @input&.shift
+    case (input)
+    when IO, Async::IO::Stream
+      @input.read
+    when Array
+      @input.shift
+    else
+      @input
+    end
   end
 
   # Emits a state transition

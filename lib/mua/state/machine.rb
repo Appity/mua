@@ -4,9 +4,6 @@ require_relative '../state'
 class Mua::State::Machine < Mua::State
   # == Constants ============================================================
 
-  STATE_INITIAL_DEFAULT = :initialize
-  STATE_FINAL_DEFAULT = :finished
-
   # == Exceptions ===========================================================
   
   # == Properties ===========================================================
@@ -19,30 +16,11 @@ class Mua::State::Machine < Mua::State
 
   def initialize(name = nil)
     super
-
-    unless (state_defined?(STATE_INITIAL_DEFAULT))
-      @interpret << [
-        STATE_INITIAL_DEFAULT,
-        -> (context) do
-          context.transition!(state: STATE_FINAL_DEFAULT)
-        end
-      ]
-    end
-
-    # NOTE: Technically not necessary if another state is terminal.
-    unless (state_defined?(STATE_FINAL_DEFAULT))
-      @interpret << [
-        STATE_FINAL_DEFAULT,
-        -> (context) do
-          context.terminated!
-        end
-      ]
-    end
   end
-
+  
   def state_defined?(state)
     @interpret.any? do |k, _p|
-      k == state
+      state === k
     end
   end
 
@@ -52,68 +30,63 @@ class Mua::State::Machine < Mua::State
     end
   end
 
+  def initial_state
+    @interpret.dig(0, 0)
+  end
+
   def state
-    @__state ||= ->(name) { @interpret.find { |k, _p| k == name }&.dig(1) }
+    @state_lookup ||= -> (name) { @interpret.find { |k, _p| k == name }&.dig(1) }
   end
 
-  def run!(context = nil)
-    self.call(context || Mua::State::Context.new).to_a
-  end
+  def run_interior(events, context)
+    loop do
+      unless (context.state)
+        context.terminated!
 
-  def run(context = nil)
-    self.call(context || Mua::State::Context.new)
-  end
+        break
+      end
 
-  def call(context, *args)
-    context.state ||= @interpret.dig(0, 0)
+      case (result = self.interpreter.call(context, context.state))
+      when Mua::State::Transition
+        context.state = result.state
 
-    Enumerator.new do |y|
-      y << [ context, self, :enter ]
+        events << [ context, self, :transition, context.state ]
+      when Enumerator
+        result.each do |event|
+          case (event)
+          when Mua::State::Transition
+            context.state = event.state
 
-      self.trigger(context, @enter)
-
-      until (context.terminated?)
-        @parser and @parser.call(context, *args)
-
-        state = context.state
-
-        action = @interpret.find do |match, _proc|
-          match === state
-        end&.dig(1)
-
-        unless (action)
-          y << [ context, self, :error, :state_missing, state ]
-
-          context.terminated!
-
-          # FIX: Add on_error or on_missing_state handler?
-          break
-        end
-        
-        case (result = dynamic_call(action, context, *args))
-        when Enumerator
-          result.each do |event|
-            case (event)
-            when Mua::State::Transition
-              context.state = event.state
-              y << [ context, self, :transition, context.state ]
-            else
-              y << event
-            end
+            events << [ context, self, :transition, context.state ]
+          else
+            events << event
           end
-        when Mua::State::Transition
-          context.state = result.state
-          y << [ context, self, :transition, context.state ]
         end
       end
 
-      y << [ context, self, :leave ]
+      break if (context.terminated?)
+    end
+  end
 
-      self.trigger(context, @leave)
+protected
+  def prepare_for_interpreter!
+    unless (state_defined?(Mua::State::INITIAL_DEFAULT))
+      @interpret << [
+        Mua::State::INITIAL_DEFAULT,
+        -> (context) do
+          context.transition!(state: Mua::State::FINAL_DEFAULT)
+        end
+      ]
+    end
 
-      y << [ context, self, :terminate ]
-
-      self.trigger(context, @terminate)
+    # NOTE: Technically not necessary if another state is terminal.
+    unless (state_defined?(Mua::State::FINAL_DEFAULT))
+      @interpret << [
+        Mua::State::FINAL_DEFAULT,
+        -> (context) do
+          context.terminated!
+        end
+      ]
     end
   end
 end

@@ -12,7 +12,7 @@ RSpec.describe Mua::State::Proxy do
       context.tag << :preprocess
     end
 
-    proxy.parse do |context|
+    proxy.parser do |context|
       context.input.read
     end
 

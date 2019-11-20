@@ -26,7 +26,7 @@ class Mua::State::Proxy
   end
 
   # Defines a parser specification.
-  def parse(**spec, &proc)
+  def parser(**spec, &proc)
     @state.parser = Mua::Parser.read_stream(**spec, &proc)
   end
   
@@ -41,8 +41,11 @@ class Mua::State::Proxy
     @state.interpret << [ response, proc ]
   end
 
+  # Defines a new state for a Mua::State::Machine
   def state(name, &block)
     Mua::State.new(name) do |state|
+      state.parser = @state.parser
+
       Mua::State::Proxy.new(state, &block)
 
       @state.interpret << [ name, state ]

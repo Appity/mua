@@ -1,6 +1,59 @@
-if (false)
+require_relative '../support/mock_stream'
+
 RSpec.describe Mua::Interpreter do
-  class RegexpInterpreter < Mua::Interpreter
+  context 'define' do
+    it 'can create a class with a custom state machine and context' do
+      interpreter_class = Mua::Interpreter.define('test', header: nil, body: -> { [ ] }) do
+        parser(match: "\n", chomp: true)
+
+        state(:initialize) do
+          enter do |context|
+            context.transition!(state: :header)
+          end
+        end
+
+        state(:header) do
+          default do |context, line|
+            context.header = line.split('|')
+
+            context.transition!(state: :body)
+          end
+        end
+
+        state(:body) do
+          default do |context, line|
+            context.body << line.split('|')
+          end
+        end
+      end
+
+      expect(interpreter_class.superclass).to be(Mua::Interpreter)
+      expect(interpreter_class.context.superclass).to be(Mua::State::Context)
+      expect(interpreter_class.machine).to be_kind_of(Mua::State::Machine)
+
+      data = %w[
+        a|b|c
+        1|2|3
+        4|5|6
+        7|8|9
+        *|0|#
+      ]
+
+      interpreter = interpreter_class.new(MockStream.new(data.join("\n") + "\n"))
+
+      context = interpreter.context
+      expect(context).to be_kind_of(interpreter_class.context)
+      expect(context).to respond_to(:header=, :body)
+
+      interpreter.run!
+
+      expect(context.header).to eq(%w[ a b c ])
+      expect(context.body).to match_array(data[1..4].map{ |v| v.split('|') })
+    end
+  end
+
+  if (false)
+    RegexpInterpreter = Mua::Interpreter.define do
     attr_reader :received
     
     state :initialized do
@@ -314,5 +367,5 @@ RSpec.describe Mua::Interpreter do
 
     expect(interpreter.example).to eq('example')
   end
-end
+  end
 end

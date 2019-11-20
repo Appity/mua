@@ -1,6 +1,8 @@
+require_relative '../support/mock_stream'
+
 RSpec.describe Mua::State::Machine do
   it 'has a default state map' do
-    machine = Mua::State::Machine.new
+    machine = Mua::State::Machine.new.prepare
 
     expect(machine.states).to eq([ :initialize, :finished ])
     expect(machine.state_defined?(:initialize)).to be(true)
@@ -9,13 +11,11 @@ RSpec.describe Mua::State::Machine do
 
     context = Mua::State::Context.new(state: :initialize)
 
-    events = StateEventsHelper.reduce(
-      machine.call(context),
-      machine: machine,
-      context: context
-    )
+    events = StateEventsHelper.map_locals do
+      machine.run!(context)
+    end
 
-    expect(events).to match_array([
+    expect(events).to eq([
       [ :context, :machine, :enter ],
       [ :context, :machine, :transition, :finished ],
       [ :context, :machine, :leave ],
@@ -49,7 +49,7 @@ RSpec.describe Mua::State::Machine do
       expect(count).to eq(1)
     end
 
-    it 'runs the block precisely once when ommiting the argument' do
+    it 'runs the block precisely once when omitting the argument' do
       count = 0
 
       machine = Mua::State::Machine.define do
@@ -64,6 +64,12 @@ RSpec.describe Mua::State::Machine do
       entered = [ ]
 
       machine = Mua::State::Machine.define do
+        state(:initialize) do
+          enter do |context|
+            context.transition!(state: 0)
+          end
+        end
+
         count.times do |i|
           state(i) do
             enter do |context|
@@ -73,18 +79,21 @@ RSpec.describe Mua::State::Machine do
           end
         end
 
-        state(count + 1) do
+        state(count) do
           enter do |context|
             context.transition!(state: :finished)
           end
         end
       end
 
-      expect(machine.states.length).to eq(count + 3)
+      # Trigger interpreter compilation
+      machine.interpreter
 
-      events = machine.run!
+      expect(machine.states).to eq([ :initialize, *(0..count).to_a, :finished ])
 
-      expect(entered).to match_array((0...count).to_a)
+      events = machine.run!(Mua::State::Context.new)
+
+      expect(entered).to eq((0...count).to_a)
     end
   end
 
@@ -149,6 +158,60 @@ RSpec.describe Mua::State::Machine do
       [ :context, :state_b, :leave ],
       [ :context, :machine, :leave ],
       [ :context, :machine, :terminate ]
+    ])
+  end
+
+  it 'has states which inherit the parser of the parent machine' do
+    machine = Mua::State::Machine.define('inherited_parser') do
+      parser(match: "\n", chomp: true)
+
+      state(:first) do
+        default do |context, line|
+          context.lines << [ :first, line ]
+
+          context.transition!(state: :second)
+        end
+      end
+
+      state(:second) do
+        default do |context, line|
+          context.lines << [ :second, line ]
+
+          context.transition!(state: :third)
+        end
+      end
+
+      state(:third) do
+        default do |context, line|
+          context.lines << [ :third, line ]
+
+          context.transition!(state: :fourth)
+        end
+      end
+
+      state(:fourth) do
+        default do |context, line|
+          context.lines << [ :fourth, line ]
+
+          context.terminated!
+        end
+      end
+    end
+
+    context = Mua::State::Context.with_attributes(
+      initial_state: :first,
+      lines: -> { [ ] }
+    ).new(
+      input: MockStream.new("this\nhas\nlines\n")
+    )
+
+    expect(machine.name).to eq('inherited_parser')
+    machine.run!(context)
+
+    expect(context.lines).to eq([
+      [ :first, 'this' ],
+      [ :second, 'has' ],
+      [ :third, 'lines' ]
     ])
   end
 end

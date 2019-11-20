@@ -16,7 +16,7 @@ module TestTriggerHelper
 end
 
 require_relative 'helpers/expect_mapping'
-require_relative 'helpers/state_events_reducer'
+require_relative 'helpers/state_events_helper'
 
 RSpec.configure do |config|
   # Enable flags like --only-failures and --next-failure

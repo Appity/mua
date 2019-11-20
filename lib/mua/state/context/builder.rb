@@ -4,6 +4,10 @@ module Mua::State::Context::Builder
   def self.class_with_attributes(attr_list, attr_spec)
     type = Class.new(Mua::State::Context)
 
+    if (initial_state = attr_spec.delete(:initial_state))
+      define_initial_state!(type, initial_state)
+    end
+
     attrs = remap_attrs(attr_list, attr_spec).map do |attr_name, attr_value|
       var = attr_value[:variable]
 
@@ -49,6 +53,12 @@ module Mua::State::Context::Builder
     return remapped.to_h unless (block_given?)
 
     remapped.map(&block).to_h
+  end
+
+  def self.define_initial_state!(type, initial_state)
+    type.send(:define_method, :initial_state) do
+      initial_state
+    end
   end
 
   def self.define_boolean_attribute!(type, attr_name, var)

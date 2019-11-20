@@ -24,11 +24,15 @@ class Mua::State::Context
 
   def initialize(task: nil, state: nil, input: nil)
     @task = task
-    @state = state
+    @state = state || self.initial_state
     @input = input
     @terminated = false
 
     yield(self) if (block_given?)
+  end
+
+  def initial_state
+    Mua::State::INITIAL_DEFAULT
   end
 
   # Reads an element out of the provided input array. Subclasses can redefine

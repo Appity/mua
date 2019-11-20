@@ -38,11 +38,19 @@ RSpec.describe Mua::State::Context::Builder do
   context 'class_with_attributes()' do
     context_type = Mua::State::Context::Builder.class_with_attributes(
       [ ],
+      initial_state: :custom_state,
       boolean_value: {
         boolean: true,
         default: false
       }
     )
+
+    it 'overrides initial_state' do
+      context = context_type.new
+
+      expect(context.initial_state).to eq(:custom_state)
+      expect(context.state).to eq(:custom_state)
+    end
 
     it 'properly defaults' do
       context = context_type.new

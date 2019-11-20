@@ -5,7 +5,7 @@ RSpec.describe Mua::State::Context do
     expect(context).to be
     expect(context.task).to be(nil)
     expect(context.input).to be(nil)
-    expect(context.state).to be(nil)
+    expect(context.state).to eq(:initialize)
     expect(context).to_not be_terminated
   end
 

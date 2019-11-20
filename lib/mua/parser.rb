@@ -3,20 +3,28 @@ module Mua::Parser
     if (match)
       if (block)
         -> (context) do
+          return if (context.input.eof?)
+
           block.call(context, context.input.read_until(match, chomp: chomp))
         end
       else
         -> (context) do
+          return if (context.input.eof?)
+
           context.input.read_until(match, chomp: chomp)
         end
       end
     elsif (exactly)
       if (block)
         -> (context) do
+          return if (context.input.eof?)
+
           block.call(context, context.input.read_exactly(exactly))
         end
       else
         -> (context) do
+          return if (context.input.eof?)
+
           context.input.read_exactly(exactly)
         end
       end
@@ -25,10 +33,14 @@ module Mua::Parser
       # https://github.com/socketry/async-io/blob/master/lib/async/io/stream.rb
       if (block)
         -> (context) do
+          return if (context.input.eof?)
+
           block.call(context, context.input.read_exactly(partial))
         end
       else
         -> (context) do
+          return if (context.input.eof?)
+
           context.input.read_exactly(partial)
         end
       end

@@ -8,6 +8,7 @@ RSpec.describe Mua::Parser do
       context = MockStream.context('random-content')
 
       expect(parser.call(context)).to eq('random-con')
+      expect(context.input).to_not be_eof
     end
 
     it 'can emit a reader for exact length that wraps a block' do
@@ -18,6 +19,7 @@ RSpec.describe Mua::Parser do
       context = MockStream.context('random-content')
 
       expect(parser.call(context)).to eq('RANDOM-CON')
+      expect(context.input).to_not be_eof
     end
 
     it 'can emit a reader for matches that works independently' do
@@ -28,6 +30,7 @@ RSpec.describe Mua::Parser do
       expect(parser.call(context)).to eq("random\n")
       expect(parser.call(context)).to eq("content\n")
       expect(parser.call(context)).to eq(nil)
+      expect(context.input).to be_eof
     end
 
     it 'can emit a reader for matches that works independently and chomps' do
@@ -38,6 +41,7 @@ RSpec.describe Mua::Parser do
       expect(parser.call(context)).to eq('random')
       expect(parser.call(context)).to eq('content')
       expect(parser.call(context)).to eq(nil)
+      expect(context.input).to be_eof
     end
 
     it 'can emit a reader for matches that takes a block' do
@@ -50,6 +54,7 @@ RSpec.describe Mua::Parser do
       expect(parser.call(context)).to eq('RANDOM')
       expect(parser.call(context)).to eq('CONTENT')
       expect(parser.call(context)).to eq(nil)
+      expect(context.input).to be_eof
     end
   end
 end

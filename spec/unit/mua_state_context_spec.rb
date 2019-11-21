@@ -72,6 +72,18 @@ RSpec.describe Mua::State::Context do
     expect(context.example?).to be(true)
   end
 
+  it 'can have methods defined via a block' do
+    defined = Mua::State::Context.with_attributes do
+      def customized?
+        true
+      end
+    end
+
+    context = defined.new
+
+    expect(context).to be_customized
+  end
+
   it 'can be associated with an Async task' do
     executed = false
     

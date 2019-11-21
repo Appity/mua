@@ -10,4 +10,6 @@ module Mua::Constants
     imap: 993,
     socks5: 1080
   }.freeze
+
+  TIMEOUT = 30
 end

@@ -1,32 +1,8 @@
 require_relative '../../constants'
+require_relative 'context'
 
 Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
-  :username,
-  :password,
-  :remote,
-  initial_state: :greeting,
-  protocol: {
-    default: :smtp
-  },
-  auth_support: {
-    default: false,
-    boolean: true
-  },
-  auth_required: {
-    default: false,
-    boolean: true
-  },
-  tls: {
-    default: false,
-    boolean: true
-  },
-  proxy: {
-    default: false,
-    boolean: true
-  },
-  timeout: {
-    default: Mua::Constants::TIMEOUT_DEFAULT
-  }
+  context: Mua::SMTP::Client::Context
 ) do
   label('SMTP')
   

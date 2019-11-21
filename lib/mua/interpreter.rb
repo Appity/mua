@@ -14,7 +14,7 @@ class Mua::Interpreter
 
   def self.define(*attr_list, name: nil, **attr_spec, &block)
     Class.new(Mua::Interpreter) do
-      context = Mua::State::Context.with_attributes(*attr_list, **attr_spec)
+      context = Mua::State::Context.define(*attr_list, **attr_spec)
       machine = Mua::State::Machine.define(
         name: name,
         **attr_spec.slice(:initial_state, :final_state),
@@ -34,7 +34,13 @@ class Mua::Interpreter
   # == Instance Methods =====================================================
   
   def initialize(input)
-    @context = self.class.context.new(input: input)
+    @context =
+      case (input)
+      when Mua::State::Context
+        input
+      else
+        self.class.context.new(input: input)
+      end
     @machine = self.class.machine
   end
 

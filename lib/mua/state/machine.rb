@@ -61,7 +61,7 @@ class Mua::State::Machine < Mua::State
         break
       end
 
-      case (result = self.interpreter.call(context, context.state))
+      case (result = self.dispatcher.call(context, context.state))
       when Mua::State::Transition
         context.state = result.state
 

@@ -133,7 +133,7 @@ RSpec.describe Mua::State::Machine do
   end
 
   it 'with the parent able to switch between sub-machines' do
-    VisitTrackingContext = Mua::State::Context.with_attributes(visited: -> { [ ] })
+    VisitTrackingContext = Mua::State::Context.define(visited: -> { [ ] })
 
     states = { }
 
@@ -226,7 +226,7 @@ RSpec.describe Mua::State::Machine do
       end
     end
 
-    context = Mua::State::Context.with_attributes(
+    context = Mua::State::Context.define(
       initial_state: :first,
       lines: -> { [ ] }
     ).new(

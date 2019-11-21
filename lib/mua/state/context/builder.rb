@@ -39,6 +39,10 @@ module Mua::State::Context::Builder
       type.include(includes)
     end
 
+    if (block_given?)
+      type.class_eval(&Proc.new)
+    end
+
     type
   end
 

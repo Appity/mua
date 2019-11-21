@@ -171,5 +171,17 @@ RSpec.describe Mua::State::Context::Builder do
 
       expect(instance).to respond_to(:a, :b)
     end
+
+    it 'can customize the class by supplying a block' do
+      built = Mua::State::Context::Builder.class_with_attributes([ ], { }) do
+        def customized?
+          true
+        end
+      end
+
+      context = built.new
+
+      expect(context).to be_customized
+    end
   end
 end

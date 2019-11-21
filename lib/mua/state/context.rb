@@ -17,8 +17,8 @@ class Mua::State::Context
   
   # == Class Methods ========================================================
 
-  def self.with_attributes(*attr_list, **attr_spec)
-    Builder.class_with_attributes(attr_list, attr_spec)
+  def self.with_attributes(*attr_list, **attr_spec, &block)
+    Builder.class_with_attributes(attr_list, attr_spec, &block)
   end
   
   # == Instance Methods =====================================================

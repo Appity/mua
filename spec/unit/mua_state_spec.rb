@@ -107,7 +107,7 @@ RSpec.describe Mua::State do
   end
 
   context 'parses input arguments' do
-    ContextWithBranch =  Mua::State::Context.with_attributes(:branch)
+    ContextWithBranch =  Mua::State::Context.define(:branch)
 
     it 'based on simple string input' do
       state = Mua::State.new
@@ -199,7 +199,7 @@ RSpec.describe Mua::State do
   end
 
   context 'supports nested states' do
-    TrackingContext = Mua::State::Context.with_attributes(visited: -> { [ ] })
+    TrackingContext = Mua::State::Context.define(visited: -> { [ ] })
 
     it 'hands off correctly to an inner State' do
       parent = Mua::State.new
@@ -278,7 +278,7 @@ RSpec.describe Mua::State do
       end
     end
 
-    context = Mua::State::Context.with_attributes(
+    context = Mua::State::Context.define(
       parts: -> () { [ ] }
     ).new
 

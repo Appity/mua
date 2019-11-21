@@ -43,57 +43,28 @@ class Mua::State
   end
 
   def prepare
+    self.prepare_for_interpreter!
+
+    self.dispatcher
     self.interpreter
 
     self
   end
 
-  # Produces a case-statement that represents the branching behavior defined
-  # by the @interpret rule set.
   def interpreter
-    # REFACTOR: This should do a quick check on the blocks to ensure they take
-    #           the required number of arguments.
-    @interpreter ||= begin
-      self.prepare_for_interpreter!
+    @interpreter ||= Mua::State::Compiler.dispatcher(
+      @interpret.reject do |_, v|
+        v.is_a?(Mua::State)
+      end,
+      @default
+    )
+  end
 
-      b = binding
-
-      if (@interpret.any?)
-        default = @default
-
-        b.eval([
-          '-> (context, branch, *args) do',
-          'case (branch)',
-          *@interpret.map.with_index do |(match, block), i|
-            b.local_variable_set(:"__match_#{i}", block)
-
-            case (match)
-            when Regexp
-              "when %s\n__match_%d.call(context, *$~, *args)" % [ match.inspect, i ]
-            when Range
-              "when %s\n__match_%d.call(context, branch, *args)" % [ match.inspect, i ]
-            when String
-              "when %s\n__match_%d.call(context, *args)" % [ match.dump, i ]
-            when Symbol, Integer, Float, true, false, nil
-              "when %s\n__match_%d.call(context, *args)" % [ match.inspect, i ]
-            else
-              raise "Unsupported branch type #{match.class}"
-            end
-          end,
-          *(default ? [ 'else', 'default.call(context, branch, *args)' ] : [ ]),
-          'end',
-          'end'
-        ].join("\n"))
-      elsif (@default)
-        default = @default
-
-        -> (context, branch, *args) do
-          default.call(context, branch, *args)
-        end
-      else
-        -> (context, branch, *args) { }
-      end
-    end
+  def dispatcher
+    @dispatcher ||= Mua::State::Compiler.dispatcher(
+      @interpret,
+      @default
+    )
   end
 
   def run!(context)
@@ -148,7 +119,7 @@ class Mua::State
 
         break
       else
-        case (result = self.interpreter.call(context, branch, *args))
+        case (result = self.dispatcher.call(context, branch, *args))
         when Mua::State::Transition
           context.state = result.state
 
@@ -235,6 +206,7 @@ protected
 end
 
 require_relative 'state/context'
+require_relative 'state/compiler'
 require_relative 'state/machine'
 require_relative 'state/proxy'
 require_relative 'state/transition'

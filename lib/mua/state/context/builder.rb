@@ -8,6 +8,10 @@ module Mua::State::Context::Builder
       define_initial_state!(type, initial_state)
     end
 
+    if (final_state = attr_spec.delete(:final_state))
+      define_final_state!(type, final_state)
+    end
+
     includes = attr_spec.delete(:includes)
 
     attrs = remap_attrs(attr_list, attr_spec).map do |attr_name, attr_value|
@@ -67,8 +71,20 @@ module Mua::State::Context::Builder
   end
 
   def self.define_initial_state!(type, initial_state)
+    type.send(:define_singleton_method, :initial_state) do
+      initial_state
+    end
     type.send(:define_method, :initial_state) do
       initial_state
+    end
+  end
+
+  def self.define_final_state!(type, final_state)
+    type.send(:define_singleton_method, :final_state) do
+      final_state
+    end
+    type.send(:define_method, :final_state) do
+      final_state
     end
   end
 

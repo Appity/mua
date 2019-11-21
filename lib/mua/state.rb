@@ -20,7 +20,7 @@ class Mua::State
 
   # == Class Methods ========================================================
 
-  def self.define(name = nil, &block)
+  def self.define(name: nil, &block)
     new(name) do |state|
       Mua::State::Proxy.new(state, &block)
     end.tap(&:prepare)

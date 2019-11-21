@@ -86,26 +86,54 @@ RSpec.describe Mua::State::Machine do
         end
       end
 
-      # Trigger interpreter compilation
-      machine.interpreter
-
       expect(machine.states).to eq([ :initialize, *(0..count).to_a, :finished ])
 
       events = machine.run!(Mua::State::Context.new)
 
       expect(entered).to eq((0...count).to_a)
     end
+
+    it 'with a custom initial state' do
+      entered = false
+
+      machine = Mua::State::Machine.define(
+        initial_state: :custom,
+        final_state: :done
+      ) do
+        state(:custom) do
+          enter do |context|
+            entered = true
+            context.transition!(state: :done)
+          end
+        end
+      end
+
+      expect(machine.states).to eq([ :custom, :done ])
+
+      context = Mua::State::Context.new(state: :custom)
+
+      events = machine.run!(context)
+
+      expect(entered).to be(true)
+    end
+
+    it 'with a reference to an undefined state, which will error out' do
+      machine = Mua::State::Machine.define do
+        state(:initialize) do
+          enter do |context|
+            context.transition!(state: :invalid)
+          end
+        end
+      end
+
+      context = Mua::State::Context.new
+
+      expect { machine.run!(context) }.to raise_exception(Mua::State::Machine::InvalidStateError)
+    end
   end
 
   it 'with the parent able to switch between sub-machines' do
-    class VisitTrackingContext < Mua::State::Context
-      attr_reader :visited
-      def initialize(state: nil)
-        super
-
-        @visited = [ ]
-      end
-    end
+    VisitTrackingContext = Mua::State::Context.with_attributes(visited: -> { [ ] })
 
     states = { }
 
@@ -162,7 +190,7 @@ RSpec.describe Mua::State::Machine do
   end
 
   it 'has states which inherit the parser of the parent machine' do
-    machine = Mua::State::Machine.define('inherited_parser') do
+    machine = Mua::State::Machine.define(name: 'inherited_parser') do
       parser(match: "\n", chomp: true)
 
       state(:first) do

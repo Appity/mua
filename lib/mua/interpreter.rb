@@ -7,12 +7,19 @@ class Mua::Interpreter
   
   # == Properties ===========================================================
   
+  attr_reader :context
+  attr_reader :machine
+
   # == Class Methods ========================================================
 
-  def self.define(name, *attr_list, **attr_spec, &block)
+  def self.define(*attr_list, name: nil, **attr_spec, &block)
     Class.new(Mua::Interpreter) do
       context = Mua::State::Context.with_attributes(*attr_list, **attr_spec)
-      machine = Mua::State::Machine.define(name, &block)
+      machine = Mua::State::Machine.define(
+        name: name,
+        **attr_spec.slice(:initial_state, :final_state),
+        &block
+      )
 
       define_singleton_method(:context) do
         context
@@ -21,26 +28,22 @@ class Mua::Interpreter
       define_singleton_method(:machine) do
         machine
       end
-
-      attr_reader :context
-      attr_reader :machine
-
-      def initialize(input)
-        @context = self.class.context.new(input: input)
-        @machine = self.class.machine
-      end
-
-      def run!
-        @machine.run!(@context)
-      end
-
-      def run
-        @machine.run(@context)
-      end
-      alias_method :call, :run
     end
   end
   
   # == Instance Methods =====================================================
   
+  def initialize(input)
+    @context = self.class.context.new(input: input)
+    @machine = self.class.machine
+  end
+
+  def run!
+    @machine.run!(@context)
+  end
+
+  def run
+    @machine.run(@context)
+  end
+  alias_method :call, :run
 end

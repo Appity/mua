@@ -1,74 +1,63 @@
 require_relative '../../constants'
 
-class Mua::SMTP::Client::Interpreter < Mua::Interpreter
-  # == Constants ============================================================
-  
-  CRLF = Mua::Constants::CRLF
-  CRLF_DELIMITER_REGEXP = Mua::Constants::CRLF_DELIMITER_REGEXP
-
-  # == Properties ===========================================================
-
-  # == Class Methods ========================================================
-  
-  # Expands a standard SMTP reply into three parts: Numerical code, message
-  # and a boolean indicating if this reply is continued on a subsequent line.
-  def self.unpack_reply(reply)
-    reply.match(/\A(\d+)([ \-])(.*)/) and [ $1.to_i, $3, $2 == '-' ? :continued : nil ].compact
-  end
-
-  # Encodes the given user authentication paramters as a Base64-encoded
-  # string as defined by RFC4954
-  def self.encode_auth(username, password)
-    base64("\0#{username}\0#{password}")
-  end
-  
-  # Encodes the given data for an RFC5321-compliant stream where lines with
-  # leading period chracters are escaped.
-  def self.encode_data(data)
-    data.gsub(/((?:\r\n|\n)\.)/m, '\\1.')
-  end
-
-  # Encodes a string in Base64 as a single line
-  def self.base64(string)
-    [ string.to_s ].pack('m').gsub(/\n/, '')
-  end
-  
-  # == State Mapping ========================================================
-
+Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
+  :username,
+  :password,
+  :remote,
+  initial_state: :greeting,
+  protocol: {
+    default: :smtp
+  },
+  auth_support: {
+    default: false,
+    boolean: true
+  },
+  auth_required: {
+    default: false,
+    boolean: true
+  },
+  tls: {
+    default: false,
+    boolean: true
+  },
+  proxy: {
+    default: false,
+    boolean: true
+  },
+  timeout: {
+    default: Mua::Constants::TIMEOUT_DEFAULT
+  }
+) do
   label('SMTP')
   
-  parse(match: CRLF_DELIMITER_REGEXP, chomp: true) do |data|
+  parser(match: "\n") do |data|
     self.class.unpack_reply(data.chomp)
   end
   
-  state(:initialized) do
-    enter do
-      @tls = false
-    end
-
-    interpret(220) do |message, continues|
+  state(:greeting) do
+    interpret(220) do |context, message, continues|
       message_parts = message.split(/\s+/)
-      delegate.remote = message_parts.first
+      context.remote = message_parts.first
       
       if (message.match(/\bESMTP\b/))
-        delegate.protocol = :esmtp
+        context.protocol = :esmtp
       end
 
       unless (continues)
-        case (delegate.protocol)
+        case (context.protocol)
         when :esmtp
-          enter_state(:ehlo)
+          context.transition!(state: :ehlo)
         else
-          enter_state(:helo)
+          context.transition!(state: :helo)
         end
       end
     end
     
-    interpret(421) do |message|
-      delegate.connect_notification(false, "Connection timed out")
-      delegate.debug_notification(:error, "[#{@state}] 421 #{message}")
-      delegate.error_notification(421, message)
-      delegate.send_callback(:on_error)
+    interpret(421) do |context, message|
+      context.connect_notification(false, "Connection timed out")
+      context.debug_notification(:error, "[#{@state}] 421 #{message}")
+      context.error_notification(421, message)
+      context.send_callback(:on_error)
 
       enter_state(:terminated)
     end
@@ -76,11 +65,11 @@ class Mua::SMTP::Client::Interpreter < Mua::Interpreter
   
   state(:helo) do
     enter do
-      delegate.send_line("HELO #{delegate.hostname}")
+      context.send_line("HELO #{context.hostname}")
     end
 
     interpret(250) do
-      if (delegate.requires_authentication?)
+      if (context.requires_authentication?)
         enter_state(:auth)
       else
         enter_state(:established)
@@ -90,7 +79,7 @@ class Mua::SMTP::Client::Interpreter < Mua::Interpreter
   
   state(:ehlo) do
     enter do
-      delegate.send_line("EHLO #{delegate.hostname}")
+      context.send_line("EHLO #{context.hostname}")
     end
 
     interpret(250) do |message, continues|
@@ -98,22 +87,22 @@ class Mua::SMTP::Client::Interpreter < Mua::Interpreter
 
       case (message_parts[0].to_s.upcase)
       when 'SIZE'
-        delegate.max_size = message_parts[1].to_i
+        context.max_size = message_parts[1].to_i
       when 'PIPELINING'
-        delegate.pipelining = true
+        context.pipelining = true
       when 'STARTTLS'
-        delegate.tls_support = true
+        context.tls_support = true
       when 'AUTH'
-        delegate.auth_support = message_parts[1, message_parts.length].inject({ }) do |h, v|
+        context.auth_support = message_parts[1, message_parts.length].inject({ }) do |h, v|
           h[v] = true
           h
         end
       end
 
       unless (continues)
-        if (delegate.use_tls? and delegate.tls_support? and !@tls)
+        if (context.use_tls? and context.tls_support? and !@tls)
           enter_state(:starttls)
-        elsif (delegate.requires_authentication?)
+        elsif (context.requires_authentication?)
           enter_state(:auth)
         else
           enter_state(:established)
@@ -124,21 +113,21 @@ class Mua::SMTP::Client::Interpreter < Mua::Interpreter
     interpret(500..599) do |result_code|
       # RFC1869 suggests trying HELO if EHLO results in some kind of error,
       # typically 5xx, but the actual code varies wildly depending on server.
-      delegate.protocol = :smtp
+      context.protocol = :smtp
       enter_state(:helo)
     end
   end
   
   state(:starttls) do
     enter do
-      delegate.send_line("STARTTLS")
+      context.send_line("STARTTLS")
     end
     
     interpret(220) do
-      delegate.start_tls
+      context.start_tls
       @tls = true
       
-      case (delegate.protocol)
+      case (context.protocol)
       when :esmtp
         enter_state(:ehlo)
       else
@@ -149,10 +138,10 @@ class Mua::SMTP::Client::Interpreter < Mua::Interpreter
 
   state(:auth) do
     enter do
-      delegate.send_line('AUTH PLAIN %s' % [
+      context.send_line('AUTH PLAIN %s' % [
         self.class.encode_auth(
-          delegate.options[:username],
-          delegate.options[:password]
+          context.options[:username],
+          context.options[:password]
         )
       ])
     end
@@ -165,8 +154,8 @@ class Mua::SMTP::Client::Interpreter < Mua::Interpreter
       handle_reply_continuation(535, reply_message, continues) do |reply_code, reply_message|
         @error = reply_message
 
-        delegate.debug_notification(:error, "[#{@state}] #{reply_code} #{reply_message}")
-        delegate.error_notification(reply_code, reply_message)
+        context.debug_notification(:error, "[#{@state}] #{reply_code} #{reply_message}")
+        context.error_notification(reply_code, reply_message)
 
         enter_state(:quit)
       end
@@ -175,7 +164,7 @@ class Mua::SMTP::Client::Interpreter < Mua::Interpreter
   
   state(:established) do
     enter do
-      delegate.connect_notification(true)
+      context.connect_notification(true)
       
       enter_state(:ready)
     end
@@ -183,7 +172,7 @@ class Mua::SMTP::Client::Interpreter < Mua::Interpreter
   
   state(:ready) do
     enter do
-      delegate.after_ready
+      context.after_ready
     end
     
     interpret(400..499) do
@@ -200,10 +189,10 @@ class Mua::SMTP::Client::Interpreter < Mua::Interpreter
   
   state(:mail_from) do
     enter do
-      if (delegate.active_message)
-        delegate.send_line("MAIL FROM:<#{delegate.active_message[:from]}>")
+      if (context.active_message)
+        context.send_line("MAIL FROM:<#{context.active_message[:from]}>")
       else
-        delegate.message_callback(false, "Delegate has no active message")
+        context.message_callback(false, "Delegate has no active message")
         enter_state(:reset)
       end
     end
@@ -221,13 +210,13 @@ class Mua::SMTP::Client::Interpreter < Mua::Interpreter
   
   state(:re_helo) do
     enter do
-      delegate.send_line("HELO #{delegate.hostname}")
+      context.send_line("HELO #{context.hostname}")
     end
     
     interpret(220) do
-      if (delegate.requires_authentication?)
+      if (context.requires_authentication?)
         enter_state(:auth)
-      elsif (delegate.active_message)
+      elsif (context.active_message)
         enter_state(:mail_from)
       else
         enter_state(:established)
@@ -235,7 +224,7 @@ class Mua::SMTP::Client::Interpreter < Mua::Interpreter
     end
     
     interpret(250) do
-      if (delegate.requires_authentication?)
+      if (context.requires_authentication?)
         enter_state(:auth)
       else
         enter_state(:established)
@@ -245,18 +234,18 @@ class Mua::SMTP::Client::Interpreter < Mua::Interpreter
   
   state(:rcpt_to) do
     enter do
-      if (delegate.active_message)
-        delegate.send_line("RCPT TO:<#{delegate.active_message[:to]}>")
+      if (context.active_message)
+        context.send_line("RCPT TO:<#{context.active_message[:to]}>")
       else
-        delegate.message_callback(false, "Delegate has no active message")
+        context.message_callback(false, "Delegate has no active message")
         enter_state(:reset)
       end
     end
     
     interpret(250) do |reply_message, continues|
       handle_reply_continuation(250, reply_message, continues) do |reply_code, reply_message|
-        if (delegate.active_message[:test])
-          delegate_call(:after_message_sent, reply_code, reply_message)
+        if (context.active_message[:test])
+          context_call(:after_message_sent, reply_code, reply_message)
 
           enter_state(:reset)
         else
@@ -267,7 +256,7 @@ class Mua::SMTP::Client::Interpreter < Mua::Interpreter
     
     interpret(500..599) do |reply_code, reply_message, continues|
       handle_reply_continuation(reply_code, reply_message, continues) do |reply_code, reply_message|
-        delegate_call(:after_message_sent, reply_code, reply_message)
+        context_call(:after_message_sent, reply_code, reply_message)
 
         enter_state(:reset)
       end
@@ -276,7 +265,7 @@ class Mua::SMTP::Client::Interpreter < Mua::Interpreter
   
   state(:data) do
     enter do
-      delegate.send_line("DATA")
+      context.send_line("DATA")
     end
     
     interpret(354) do
@@ -286,21 +275,21 @@ class Mua::SMTP::Client::Interpreter < Mua::Interpreter
   
   state(:sending) do
     enter do
-      data = delegate.active_message[:data]
+      data = context.active_message[:data]
 
-      delegate.debug_notification(:send, data.inspect)
+      context.debug_notification(:send, data.inspect)
 
-      delegate.send_data(self.class.encode_data(data))
+      context.send_data(self.class.encode_data(data))
 
       # Ensure that a blank line is sent after the last bit of email content
       # to ensure that the dot is on its own line.
-      delegate.send_line
-      delegate.send_line(".")
+      context.send_line
+      context.send_line(".")
     end
     
     default do |reply_code, reply_message, continues|
       handle_reply_continuation(reply_code, reply_message, continues) do |reply_code, reply_message|
-        delegate_call(:after_message_sent, reply_code, reply_message)
+        context_call(:after_message_sent, reply_code, reply_message)
       end
 
       enter_state(:sent)
@@ -315,7 +304,7 @@ class Mua::SMTP::Client::Interpreter < Mua::Interpreter
   
   state(:quit) do
     enter do
-      delegate.send_line("QUIT")
+      context.send_line("QUIT")
     end
     
     interpret(221) do
@@ -330,13 +319,13 @@ class Mua::SMTP::Client::Interpreter < Mua::Interpreter
   
   state(:terminated) do
     enter do
-      delegate.close
+      context.close
     end
   end
   
   state(:reset) do
     enter do
-      delegate.send_line("RSET")
+      context.send_line("RSET")
     end
     
     interpret(250) do
@@ -346,7 +335,7 @@ class Mua::SMTP::Client::Interpreter < Mua::Interpreter
   
   state(:noop) do
     enter do
-      delegate.send_line("NOOP")
+      context.send_line("NOOP")
     end
     
     interpret(250) do
@@ -356,11 +345,11 @@ class Mua::SMTP::Client::Interpreter < Mua::Interpreter
   
   on_error do |reply_code, reply_message, continues|
     handle_reply_continuation(reply_code, reply_message, continues) do |reply_code, reply_message|
-      delegate.message_callback(reply_code, reply_message)
-      delegate.debug_notification(:error, "[#{@state}] #{reply_code} #{reply_message}")
-      delegate.error_notification(reply_code, reply_message)
+      context.message_callback(reply_code, reply_message)
+      context.debug_notification(:error, "[#{@state}] #{reply_code} #{reply_message}")
+      context.error_notification(reply_code, reply_message)
 
-      delegate.active_message = nil
+      context.active_message = nil
 
       enter_state(@state == :initialized ? :terminated : :reset)
     end

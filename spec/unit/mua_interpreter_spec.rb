@@ -3,7 +3,10 @@ require_relative '../support/mock_stream'
 RSpec.describe Mua::Interpreter do
   context 'define' do
     it 'can create a class with a custom state machine and context' do
-      interpreter_class = Mua::Interpreter.define('test', header: nil, body: -> { [ ] }) do
+      interpreter_class = Mua::Interpreter.define(
+        header: nil,
+        body: -> { [ ] }
+      ) do
         parser(match: "\n", chomp: true)
 
         state(:initialize) do

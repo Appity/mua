@@ -1,4 +1,5 @@
 require 'async/io/stream'
+require 'socket'
 
 module MockStream
   MODE_DEFAULT = 'r'.freeze
@@ -13,12 +14,12 @@ module MockStream
     )
   end
 
-  def self.context_writable_io
-    rio, wio = IO.pipe
-    context = Mua::State::Context.new(
-      input: Async::IO::Stream.new(rio)
+  def self.context_writable_io(context_type = Mua::State::Context)
+    sa, sb = Socket.pair(:UNIX, :STREAM, 0)
+    context = context_type.new(
+      input: Async::IO::Stream.new(sa)
     )
 
-    [ context, wio ]
+    [ context, sb ]
   end
 end

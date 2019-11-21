@@ -1,6 +1,6 @@
 require_relative 'context_extensions'
 
-Mua::SMTP::Client::Context = Mua::State::Context.with_attributes(
+Mua::SMTP::Client::Context = Mua::State::Context.define(
   :username,
   :password,
   :remote,

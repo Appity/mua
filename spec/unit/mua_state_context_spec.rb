@@ -54,8 +54,8 @@ RSpec.describe Mua::State::Context do
     expect(context.example?).to be(true)
   end
 
-  it 'can have boolean attributes defined through with_attributes' do
-    ExampleContext = Mua::State::Context.with_attributes(
+  it 'can have boolean attributes defined' do
+    ExampleContext = Mua::State::Context.define(
       example: {
         boolean: true,
         default: false
@@ -73,7 +73,7 @@ RSpec.describe Mua::State::Context do
   end
 
   it 'can have methods defined via a block' do
-    defined = Mua::State::Context.with_attributes do
+    defined = Mua::State::Context.define do
       def customized?
         true
       end
@@ -108,8 +108,8 @@ RSpec.describe Mua::State::Context do
     expect(transition.state).to eq(:finished)
   end
 
-  context 'can quickly define variant contexts using with_attributes' do
-    context_type = Mua::State::Context.with_attributes(
+  context 'can quickly define variant contexts using define' do
+    context_type = Mua::State::Context.define(
       :nil_value,
       fixed_value: true,
       with_proc: -> { [ ] },

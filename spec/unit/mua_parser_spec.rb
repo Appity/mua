@@ -22,21 +22,21 @@ RSpec.describe Mua::Parser do
       expect(context.input).to_not be_eof
     end
 
-    it 'can emit a reader for matches that works independently' do
-      parser = Mua::Parser.read_stream(match: "\n")
+    it 'can emit a reader for matches' do
+      parser = Mua::Parser.read_stream(match: "\0", chomp: false)
 
-      context = MockStream.context("random\ncontent\n")
+      context = MockStream.context("random\0content\0")
 
-      expect(parser.call(context)).to eq("random\n")
-      expect(parser.call(context)).to eq("content\n")
+      expect(parser.call(context)).to eq("random\0")
+      expect(parser.call(context)).to eq("content\0")
       expect(parser.call(context)).to eq(nil)
       expect(context.input).to be_eof
     end
 
-    it 'can emit a reader for matches that works independently and chomps' do
-      parser = Mua::Parser.read_stream(match: "\n", chomp: true)
+    it 'can emit a reader for matches that chomps by default' do
+      parser = Mua::Parser.read_stream(match: "\0")
 
-      context = MockStream.context("random\ncontent\n")
+      context = MockStream.context("random\0content\0")
 
       expect(parser.call(context)).to eq('random')
       expect(parser.call(context)).to eq('content')
@@ -45,11 +45,11 @@ RSpec.describe Mua::Parser do
     end
 
     it 'can emit a reader for matches that takes a block' do
-      parser = Mua::Parser.read_stream(match: "\n") do |_context, input|
+      parser = Mua::Parser.read_stream(match: "\0") do |_context, input|
         input&.chomp&.upcase
       end
 
-      context = MockStream.context("random\ncontent\n")
+      context = MockStream.context("random\0content\0")
 
       expect(parser.call(context)).to eq('RANDOM')
       expect(parser.call(context)).to eq('CONTENT')
@@ -57,8 +57,8 @@ RSpec.describe Mua::Parser do
       expect(context.input).to be_eof
     end
 
-    it 'can emit a reader for lines' do
-      parser = Mua::Parser.read_stream(line: true)
+    it 'can emit a reader for lines without chomping' do
+      parser = Mua::Parser.read_stream(line: true, chomp: false)
 
       context = MockStream.context("random\ncontent\n")
 
@@ -68,8 +68,8 @@ RSpec.describe Mua::Parser do
       expect(context.input).to be_eof
     end
 
-    it 'can emit a reader for lines that chomps' do
-      parser = Mua::Parser.read_stream(line: true, chomp: true)
+    it 'can emit a reader for lines that chomps by default' do
+      parser = Mua::Parser.read_stream(line: true)
 
       context = MockStream.context("random\ncontent\n")
 

@@ -1,5 +1,5 @@
 module Mua::Parser
-  def self.read_stream(line: false, chomp: false, exactly: nil, partial: nil, match: nil, &block)
+  def self.read_stream(line: false, chomp: true, exactly: nil, partial: nil, match: nil, &block)
     if (line)
       if (block)
         -> (context) do

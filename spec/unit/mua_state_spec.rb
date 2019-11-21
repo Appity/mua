@@ -243,7 +243,14 @@ RSpec.describe Mua::State do
   it 'can be used to parse out simple inputs' do
     state = Mua::State.define do
       preprocess do |context|
-        context.input = context.input.downcase.split(/\s*\b/)
+        context.input = context.input.downcase.split(/\s*\b/).map do |v|
+          case (v)
+          when /\A\d+\z/
+            v.to_i
+          else
+            v
+          end
+        end
       end
 
       parser do |context|
@@ -260,6 +267,10 @@ RSpec.describe Mua::State do
         context.parts << { word: word }
       end
 
+      interpret(0..9999) do |context, number|
+        context.parts << { number: number }
+      end
+
       default do |context|
         context.parts << { fail: true }
 
@@ -271,15 +282,18 @@ RSpec.describe Mua::State do
       parts: -> () { [ ] }
     ).new
 
-    context.input = 'This will not stand!'
+    context.input = 'You cannot cut back on RFC 5322!'
 
     events = state.run!(context)
 
     expect(context.parts).to match_array([
-      { word: 'this' },
-      { word: 'will' },
-      { word: 'not' },
-      { word: 'stand' },
+      { word: 'you' },
+      { word: 'cannot' },
+      { word: 'cut' },
+      { word: 'back' },
+      { word: 'on' },
+      { word: 'rfc' },
+      { number: 5322 },
       { punctuation: '!' }
     ])
   end

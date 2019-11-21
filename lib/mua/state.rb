@@ -8,6 +8,8 @@ class Mua::State
 
   attr_reader :name
 
+  attr_reader :parent
+
   attr_accessor :preprocess
   attr_accessor :parser
   attr_accessor :default
@@ -29,8 +31,10 @@ class Mua::State
   # == Instance Methods =====================================================
   
   # Creates a new state.
-  def initialize(name = nil)
+  def initialize(name = nil, parent: nil)
     @name = name
+    @parent = parent
+    
     @preprocess = nil
     @parser = nil
     @enter = [ ]

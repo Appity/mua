@@ -17,6 +17,13 @@ RSpec.describe Mua::State do
     expect(state.name).to eq(:example)
   end
 
+  it 'can be assigned a parent' do
+    parent = Mua::State.new
+    child = Mua::State.new(parent: parent)
+
+    expect(child.parent).to be(parent)
+  end
+
   it 'can produce an interpreter block with branches and default' do
     state = Mua::State.new
 

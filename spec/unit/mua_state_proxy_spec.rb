@@ -66,10 +66,10 @@ RSpec.describe Mua::State::Proxy do
   end
 
   it 'can define sub-states' do
-    state = Mua::State.new 
+    parent = Mua::State.new 
     substate = nil
 
-    proxy = Mua::State::Proxy.new(state) do |p|
+    proxy = Mua::State::Proxy.new(parent) do |p|
       substate = p.state(:example) do |s|
         s.enter do |context|
           context.transition!(state: :finished)
@@ -78,5 +78,6 @@ RSpec.describe Mua::State::Proxy do
     end
 
     expect(substate).to be_kind_of(Mua::State)
+    expect(substate.parent).to be(parent)
   end
 end

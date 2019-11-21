@@ -65,16 +65,19 @@ class Mua::State
           '-> (context, branch, *args) do',
           'case (branch)',
           *@interpret.map.with_index do |(match, block), i|
-            b.local_variable_set(:"__match_#{i}", match)
-            b.local_variable_set(:"__proc_#{i}", block)
+            b.local_variable_set(:"__match_#{i}", block)
 
             case (match)
             when Regexp
-              "when __match_%d\n__proc_%d.call(context, *$~, *args)" % [ i, i ]
+              "when %s\n__match_%d.call(context, *$~, *args)" % [ match.inspect, i ]
             when Range
-              "when __match_%d\n__proc_%d.call(context, branch, *args)" % [ i, i ]
+              "when %s\n__match_%d.call(context, branch, *args)" % [ match.inspect, i ]
+            when String
+              "when %s\n__match_%d.call(context, *args)" % [ match.dump, i ]
+            when Symbol, Integer, Float, true, false, nil
+              "when %s\n__match_%d.call(context, *args)" % [ match.inspect, i ]
             else
-              "when __match_%d\n__proc_%d.call(context, *args)" % [ i, i ]
+              raise "Unsupported branch type #{match.class}"
             end
           end,
           *(default ? [ 'else', 'default.call(context, branch, *args)' ] : [ ]),

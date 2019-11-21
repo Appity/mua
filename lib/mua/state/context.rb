@@ -1,5 +1,6 @@
 require 'async/io/stream'
 require_relative '../attr_boolean'
+require_relative '../constants'
 
 class Mua::State::Context
   # == Constants ============================================================

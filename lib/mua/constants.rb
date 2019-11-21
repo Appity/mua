@@ -11,5 +11,5 @@ module Mua::Constants
     socks5: 1080
   }.freeze
 
-  TIMEOUT = 30
+  TIMEOUT_DEFAULT = 30
 end

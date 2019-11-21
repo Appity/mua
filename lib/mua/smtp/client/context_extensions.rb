@@ -1,5 +1,5 @@
 module Mua::SMTP::Client::ContextExtensions
-  def puts(*lines)
+  def write(*lines)
     self.input.puts(*lines, separator: Mua::Constants::CRLF)
   end
 
@@ -14,5 +14,22 @@ module Mua::SMTP::Client::ContextExtensions
 
   def error_notification(code, message)
     # ...
+  end
+
+  def handle_reply_continuation(reply_code, reply_message, continues)
+    # FIX: Convert to while or loop
+    @reply_message ||= ''
+    
+    if (preamble = @reply_message.split(/\s/).first)
+      reply_message.sub!(/^#{preamble}/, '')
+    end
+    
+    @reply_message << reply_message.gsub(/\s+/, ' ')
+    
+    unless (continues)
+      yield(reply_code, @reply_message)
+
+      @reply_message = nil
+    end
   end
 end

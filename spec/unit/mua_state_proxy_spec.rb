@@ -5,39 +5,40 @@ RSpec.describe Mua::State::Proxy do
   end
   
   it 'provides access to properties in the State' do
-    state = Mua::State.new
-    proxy = Mua::State::Proxy.new(state)
+    state = Mua::State.new do |state|
+      proxy = Mua::State::Proxy.new(state)
 
-    proxy.preprocess do |context|
-      context.tag << :preprocess
-    end
+      proxy.preprocess do |context|
+        context.tag << :preprocess
+      end
 
-    proxy.parser do |context|
-      context.input.read
-    end
+      proxy.parser do |context|
+        context.input.read
+      end
 
-    proxy.enter do |_context|
-      :enter
-    end
+      proxy.enter do |_context|
+        :enter
+      end
 
-    proxy.leave do |_context|
-      :leave
-    end
+      proxy.leave do |_context|
+        :leave
+      end
 
-    proxy.default do |_context|
-      :default
-    end
+      proxy.default do |_context|
+        :default
+      end
 
-    proxy.interpret('a') do
-      :a
-    end
+      proxy.interpret('a') do
+        :a
+      end
 
-    proxy.interpret('b') do
-      :b
-    end
+      proxy.interpret('b') do
+        :b
+      end
 
-    proxy.terminate do
-      :terminate
+      proxy.terminate do
+        :terminate
+      end
     end
 
     expect(state.preprocess).to be_kind_of(Proc)
@@ -66,13 +67,13 @@ RSpec.describe Mua::State::Proxy do
   end
 
   it 'can define sub-states' do
-    parent = Mua::State.new 
     substate = nil
-
-    proxy = Mua::State::Proxy.new(parent) do |p|
-      substate = p.state(:example) do |s|
-        s.enter do |context|
-          context.transition!(state: :finished)
+    parent = Mua::State.new do |parent|
+      proxy = Mua::State::Proxy.new(parent) do |p|
+        substate = p.state(:example) do |s|
+          s.enter do |context|
+            context.transition!(state: :finished)
+          end
         end
       end
     end

@@ -16,6 +16,7 @@ module TestTriggerHelper
 end
 
 require_relative 'helpers/expect_mapping'
+require_relative 'helpers/simulate_exchange'
 require_relative 'helpers/state_events_helper'
 
 RSpec.configure do |config|
@@ -30,6 +31,7 @@ RSpec.configure do |config|
   end
 
   config.include ExpectMappingHelper
+  config.include SimulateExchange, type: :interpreter
 end
 
 RSpec::Matchers.define :be_an_array_of do |expected|

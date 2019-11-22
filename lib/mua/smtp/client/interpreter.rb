@@ -13,7 +13,6 @@ module Mua::SMTP::Client::Interpreter
       context: Mua::SMTP::Client::Context
     ) do
       parser(line: true, chomp: true) do |context, data|
-        p data.chomp
         Mua::SMTP::Client::Support.unpack_reply(data.chomp)#.tap{|v|p v}
       end
 
@@ -332,19 +331,14 @@ module Mua::SMTP::Client::Interpreter
           context.transition!(state: :ready)
         end
       end
-      
-      # FIX: Add on_error support
-      # on_error do |context, reply_code, reply_message, continues|
-      #   context.handle_reply_continuation(reply_code, reply_message, continues) do |reply_code, reply_message|
-      #     context.message_callback(reply_code, reply_message)
-      #     context.debug_notification(:error, "[#{@state}] #{reply_code} #{reply_message}")
-      #     context.error_notification(reply_code, reply_message)
 
-      #     context.active_message = nil
+      default do |context, reply_code, reply_message, continues|
+        # FIX: Determine if it should RSET or QUIT
+        # context.transition!(state: @state == :initialized ? :terminated : :reset)
 
-      #     context.transition!(state: @state == :initialized ? :terminated : :reset)
-      #   end
-      # end
+        context.reply('QUIT')
+        context.terminated!
+      end
     end
   end
 end

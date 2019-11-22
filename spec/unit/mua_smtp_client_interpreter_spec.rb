@@ -1,7 +1,7 @@
 require_relative '../support/smtp_delegate'
 require_relative '../support/mock_stream'
 
-RSpec.describe Mua::SMTP::Client::Interpreter do
+RSpec.describe Mua::SMTP::Client::Interpreter, type: :interpreter do
   Context = Mua::SMTP::Client::Context
   Interpreter = Mua::SMTP::Client::Interpreter.define
 
@@ -18,15 +18,12 @@ RSpec.describe Mua::SMTP::Client::Interpreter do
   end
 
   it 'supports standard SMTP connections using HELO' do
-    MockStream.line_exchange(Interpreter) do |interpreter, context, io|
-      context.hostname = 'example.test'
-
-      io.puts("220 mail.example.com SMTP Example")
-
-      response = io.gets
-
-      expect(response).to eq('HELO example.test')
-    end
+    simulate_exchange(
+      Interpreter,
+      '220 mail.example.com SMTP Example' =>
+        'HELO localhost',
+      '420 Closing connection' => 'QUIT'
+    )
 
     # expect(interpreter.state).to eq(:helo)
     # expect(delegate.read).to eq('HELO localhost.local')

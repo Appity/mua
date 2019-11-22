@@ -9,7 +9,7 @@ RSpec.describe Mua::SMTP::Client::Context do
     expect(context.username).to be(nil)
     expect(context.password).to be(nil)
     expect(context.remote).to be(nil)
-    expect(context.hostname).to be(nil)
+    expect(context.hostname).to be('localhost')
     expect(context.protocol).to be(:smtp)
     expect(context.auth_support?).to be(false)
     expect(context.auth_required?).to be(false)

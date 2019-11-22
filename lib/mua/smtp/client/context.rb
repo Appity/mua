@@ -4,7 +4,9 @@ Mua::SMTP::Client::Context = Mua::State::Context.define(
   :username,
   :password,
   :remote,
-  :hostname,
+  hostname: {
+    default: 'localhost'
+  },
   protocol: {
     default: :smtp
   },

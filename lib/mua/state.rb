@@ -31,10 +31,10 @@ class Mua::State
   # == Instance Methods =====================================================
   
   # Creates a new state.
-  def initialize(name = nil, parent: nil)
+  def initialize(name = nil, parent: nil, prepare: true)
     @name = name
     @parent = parent
-    
+
     @preprocess = nil
     @parser = nil
     @enter = [ ]
@@ -44,6 +44,8 @@ class Mua::State
     @terminate = [ ]
 
     yield(self) if (block_given?)
+
+    self.prepare unless (!prepare)
   end
 
   def prepare
@@ -205,7 +207,7 @@ protected
   end
 
   def prepare_for_interpreter!
-    # Implement in subclass to add additional behavior
+    @default ||= @parent
   end
 end
 

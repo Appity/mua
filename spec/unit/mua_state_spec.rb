@@ -22,13 +22,14 @@ RSpec.describe Mua::State do
     child = Mua::State.new(parent: parent)
 
     expect(child.parent).to be(parent)
+    expect(child.default).to be(parent)
   end
 
   it 'can produce an interpreter block with branches and default' do
-    state = Mua::State.new
-
-    state.interpret << [ 'example', -> (context) { 'example.caught' } ]
-    state.default = -> (context, branch) { '%s.out' % branch }
+    state = Mua::State.new do |s|
+      s.interpret << [ 'example', -> (context) { 'example.caught' } ]
+      s.default = -> (context, branch) { '%s.out' % branch }
+    end
 
     interpreter = state.interpreter
 
@@ -39,9 +40,9 @@ RSpec.describe Mua::State do
   end
 
   it 'can produce an interpreter block no branches but a default' do
-    state = Mua::State.new
-
-    state.default = -> (context, branch) { '%s.out' % branch }
+    state = Mua::State.new do |s|
+      s.default = -> (context, branch) { '%s.out' % branch }
+    end
 
     interpreter = state.interpreter
 
@@ -62,12 +63,12 @@ RSpec.describe Mua::State do
   end
 
   it 'will capture regular expression matches' do
-    state = Mua::State.new
-
-    state.interpret << [
-      /([a-z]+)(\d+)/,
-      -> (context, _match, word, num) { [ word, num.to_i ] }
-    ]
+    state = Mua::State.new do |s|
+      s.interpret << [
+        /([a-z]+)(\d+)/,
+        -> (context, _match, word, num) { [ word, num.to_i ] }
+      ]
+    end
     
     interpreter = state.interpreter
 
@@ -79,19 +80,20 @@ RSpec.describe Mua::State do
   end
 
   it 'can have handlers populated manually', focus: true do
-    state = Mua::State.new
     ran = [ ]
 
-    state.parser = -> (context) {
-      ran << :parser
+    state = Mua::State.new do |s|
+      s.parser = -> (context) {
+        ran << :parser
 
-      context.input.shift&.to_s
-    }
-    state.enter << -> (context) { ran << :enter }
-    state.leave << -> (context) { ran << :leave }
-    state.interpret << [ 'example', -> (context) { ran << :example } ]
-    state.default = -> (context, branch) { ran << :default }
-    state.terminate << -> (context) { ran << :terminate }
+        context.input.shift&.to_s
+      }
+      s.enter << -> (context) { ran << :enter }
+      s.leave << -> (context) { ran << :leave }
+      s.interpret << [ 'example', -> (context) { ran << :example } ]
+      s.default = -> (context, branch) { ran << :default }
+      s.terminate << -> (context) { ran << :terminate }
+    end
 
     context = Mua::State::Context.new(input: [ :example ])
     state.run!(context)
@@ -106,9 +108,9 @@ RSpec.describe Mua::State do
   end
 
   it 'can be terminal if terminate is defined' do
-    state = Mua::State.new
-
-    state.terminate << true
+    state = Mua::State.new do |s|
+      s.terminate << true
+    end
 
     expect(state).to be_terminal
   end
@@ -117,27 +119,27 @@ RSpec.describe Mua::State do
     ContextWithBranch =  Mua::State::Context.define(:branch)
 
     it 'based on simple string input' do
-      state = Mua::State.new
+      state = Mua::State.new do |s|
+        s.parser = -> (context) do
+          context.read&.to_s&.upcase
+        end
 
-      state.parser = -> (context) do
-        context.read&.to_s&.upcase
+        s.interpret << [
+          'PRIMARY',
+          -> (context) do
+            context.branch = :primary
+          end
+        ]
+
+        s.interpret << [
+          'SECONDARY',
+          -> (context) do
+            context.branch = :secondary
+            
+            context.terminated!
+          end
+        ]
       end
-
-      state.interpret << [
-        'PRIMARY',
-        -> (context) do
-          context.branch = :primary
-        end
-      ]
-
-      state.interpret << [
-        'SECONDARY',
-        -> (context) do
-          context.branch = :secondary
-          
-          context.terminated!
-        end
-      ]
 
       context = ContextWithBranch.new(input: [ :primary ])
 
@@ -209,25 +211,28 @@ RSpec.describe Mua::State do
     TrackingContext = Mua::State::Context.define(visited: -> { [ ] })
 
     it 'hands off correctly to an inner State' do
-      parent = Mua::State.new
-      parent.terminate << true
-
-      parent.enter << -> (context) {
-        context.visited << :parent
-      }
-
-      substate = Mua::State.new
-      substate.enter << -> (context) {
-        context.visited << :substate
-      }
-      substate.interpret << [
-        :branch,
-        -> (context) {
-          context.visited << :branch
+      substate = Mua::State.new do |s|
+        s.enter << -> (context) {
+          context.visited << :substate
         }
-      ]
 
-      parent.interpret << [ :substate, substate ]
+        s.interpret << [
+          :branch,
+          -> (context) {
+            context.visited << :branch
+          }
+        ]
+      end
+
+      parent = Mua::State.new do |s|
+        s.terminate << true
+
+        s.enter << -> (context) {
+          context.visited << :parent
+        }
+
+        s.interpret << [ :substate, substate ]
+      end
 
       context = TrackingContext.new(input: [ :substate, :branch ])
 

@@ -1,17 +1,17 @@
 module Mua::Parser
-  def self.read_stream(line: false, chomp: true, exactly: nil, partial: nil, match: nil, &block)
+  def self.read_stream(line: false, chomp: true, exactly: nil, partial: nil, match: nil, separator: $/, &block)
     if (line)
       if (block)
         -> (context) do
           return if (context.input.eof?)
 
-          block.call(context, context.input.gets($/, chomp: chomp))
+          block.call(context, context.input.gets(separator, chomp: chomp))
         end
       else
         -> (context) do
           return if (context.input.eof?)
 
-          context.input.gets($/, chomp: chomp)
+          context.input.gets(separator, chomp: chomp)
         end
       end
     elsif (match)

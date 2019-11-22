@@ -37,6 +37,10 @@ class Mua::State::Context
     Mua::State::INITIAL_DEFAULT
   end
 
+  def final_state
+    Mua::State::FINAL_DEFAULT
+  end
+
   # Reads an element out of the provided input array. Subclasses can redefine
   # this behavior to match the type of input object used.
   def read
@@ -51,13 +55,23 @@ class Mua::State::Context
   end
 
   # Emits a state transition
-  def transition!(target: nil, state:)
-    Mua::State::Transition.new(target: target, state: state)
+  def transition!(state:, parent: nil)
+    Mua::State::Transition.new(state: state, parent: parent)
   end
 
-  # Emits a state transition to the `:finished` state
+  # Emits a local state transition
+  def local_transition!(state:)
+    Mua::State::Transition.new(state: state, parent: false)
+  end
+
+  # Emits a local state transition
+  def parent_transition!(state:)
+    Mua::State::Transition.new(state: state, parent: true)
+  end
+
+  # Emits a state transition to the default final state
   def finished!
-    Mua::State::Transition.new(state: :finished)
+    Mua::State::Transition.new(state: self.final_state)
   end
 
   # Returns true if a task is associated with this context, false otherwise.

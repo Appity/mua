@@ -101,11 +101,11 @@ RSpec.describe Mua::State::Context do
   it 'can emit state transitions' do
     context = Mua::State::Context.new
 
-    transition = context.transition!(target: :example, state: :finished)
+    transition = context.transition!(state: :finished)
 
     expect(transition).to be_kind_of(Mua::State::Transition)
-    expect(transition.target).to eq(:example)
     expect(transition.state).to eq(:finished)
+    expect(transition.parent).to eq(nil)
   end
 
   context 'can quickly define variant contexts using define' do

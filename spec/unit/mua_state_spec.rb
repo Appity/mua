@@ -7,8 +7,12 @@ RSpec.describe Mua::State do
     expect(state.leave).to eq([ ])
     expect(state.interpret).to eq([ ])
     expect(state.default).to be(nil)
-    expect(state.terminate).to eq([ ])
-    expect(state.terminal?).to be(false)
+
+    expect(state).to be_prepared
+    expect(state.interpret).to be_frozen
+
+    expect(state.interpreter).to be_kind_of(Proc)
+    expect(state.dispatcher).to be_kind_of(Proc)
   end
 
   it 'can be assigned a name' do
@@ -92,27 +96,18 @@ RSpec.describe Mua::State do
       s.leave << -> (context) { ran << :leave }
       s.interpret << [ 'example', -> (context) { ran << :example } ]
       s.default = -> (context, branch) { ran << :default }
-      s.terminate << -> (context) { ran << :terminate }
     end
 
     context = Mua::State::Context.new(input: [ :example ])
     state.run!(context)
 
-    expect(ran).to contain_exactly(:enter, :parser, :example, :leave, :terminate)
+    expect(ran).to eq([ :enter, :parser, :example, :leave ])
 
     ran.clear
     context.input = [ :not_example ]
     state.run!(context)
 
-    expect(ran).to contain_exactly(:enter, :parser, :default, :leave, :terminate)
-  end
-
-  it 'can be terminal if terminate is defined' do
-    state = Mua::State.new do |s|
-      s.terminate << true
-    end
-
-    expect(state).to be_terminal
+    expect(ran).to eq([ :enter, :parser, :default, :leave ])
   end
 
   context 'parses input arguments' do
@@ -152,7 +147,8 @@ RSpec.describe Mua::State do
 
       expect(events).to match_array([
         [ :context, :state, :enter ],
-        [ :context, :state, :leave ]
+        [ :context, :state, :leave ],
+        [ :context, :state, :terminate ]
       ])
 
       context = ContextWithBranch.new(input: [ :secondary ])
@@ -188,23 +184,6 @@ RSpec.describe Mua::State do
         [ :context, :state, :terminate ]
       ])
     end
-
-    it 'for a minimal state definition that terminates' do
-      state = Mua::State.new
-      state.terminate << true
-
-      context = Mua::State::Context.new
-
-      events = StateEventsHelper.map_locals do
-        state.run!(context)
-      end
-
-      expect(events).to match_array([
-        [ :context, :state, :enter ],
-        [ :context, :state, :leave ],
-        [ :context, :state, :terminate ]
-      ])
-    end
   end
 
   context 'supports nested states' do
@@ -225,8 +204,6 @@ RSpec.describe Mua::State do
       end
 
       parent = Mua::State.new do |s|
-        s.terminate << true
-
         s.enter << -> (context) {
           context.visited << :parent
         }
@@ -246,6 +223,7 @@ RSpec.describe Mua::State do
         [ :context, :parent, :enter ],
         [ :context, :substate, :enter ],
         [ :context, :substate, :leave ],
+        [ :context, :substate, :terminate ],
         [ :context, :parent, :leave ],
         [ :context, :parent, :terminate ]
       ])

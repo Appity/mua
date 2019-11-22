@@ -16,7 +16,6 @@ class Mua::State
   attr_reader :enter
   attr_reader :leave
   attr_reader :interpret
-  attr_reader :terminate
 
   attr_reader :interpreter
   attr_reader :dispatcher
@@ -44,7 +43,6 @@ class Mua::State
     @leave = [ ]
     @default = nil
     @interpret = [ ]
-    @terminate = [ ]
 
     @prepared = false
 
@@ -97,11 +95,19 @@ class Mua::State
 
       events << [ context, self, :enter ]
 
+      run = true
+
       case (result = self.trigger(context, @enter))
       when Mua::State::Transition
         # When a state transition occurs in the enter call, skip processing.
         context.state = result.state
-      else
+
+        unless (result.parent === false)
+          run = false
+        end
+      end
+
+      if (run)
         case (result = @preprocess&.call(context))
         when Mua::State::Transition
           context.state = result.state
@@ -114,12 +120,8 @@ class Mua::State
 
       self.trigger(context, @leave)
 
-      if (@terminate.any? or context.terminated?)
+      if (context.terminated? or !@parent)
         events << [ context, self, :terminate ]
-
-        self.trigger(context, @terminate)
-
-        context.terminated! unless (context.terminated?)
       end
     end
   end
@@ -137,20 +139,20 @@ class Mua::State
       when Mua::State::Transition
         context.state = branch.state
 
-        break
+        break unless (branch.parent === false)
       else
         case (result = @dispatcher.call(context, branch, *args))
         when Mua::State::Transition
           context.state = result.state
 
-          break
+          break unless (result.parent === false)
         when Enumerator
           result.each do |event|
             case (event)
             when Mua::State::Transition
               context.state = event.state
 
-              break
+              break unless (event.parent === false)
             else
               events << event
             end
@@ -167,10 +169,6 @@ class Mua::State
 
       break if (context.terminated?)
     end
-  end
-
-  def terminal?
-    @terminate.any?
   end
 
   def arity

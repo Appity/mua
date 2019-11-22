@@ -14,7 +14,10 @@ class Mua::Interpreter
 
   def self.define(*attr_list, name: nil, **attr_spec, &block)
     Class.new(Mua::Interpreter) do
-      context = Mua::State::Context.define(*attr_list, **attr_spec)
+      context = Mua::State::Context.define(
+        *attr_list,
+        **attr_spec
+      )
       machine = Mua::State::Machine.define(
         name: name,
         **attr_spec.slice(:initial_state, :final_state),

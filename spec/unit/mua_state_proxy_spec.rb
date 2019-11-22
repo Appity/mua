@@ -35,10 +35,6 @@ RSpec.describe Mua::State::Proxy do
       proxy.interpret('b') do
         :b
       end
-
-      proxy.terminate do
-        :terminate
-      end
     end
 
     expect(state.preprocess).to be_kind_of(Proc)
@@ -52,18 +48,6 @@ RSpec.describe Mua::State::Proxy do
     expect(state.default).to be_kind_of(Proc)
     expect(state.interpret).to be_an_array_of(Array)
     expect(state.interpret.length).to eq(2)
-    expect(state.terminate).to be_an_array_of(Proc)
-    expect(state).to be_terminal
-  end
-
-  it 'can redefine the terminal condition' do
-    state = Mua::State.new 
-    proxy = Mua::State::Proxy.new(state) do
-      terminate
-    end
-
-    expect(state.terminate).to match_array([ true ])
-    expect(state).to be_terminal
   end
 
   it 'can define sub-states' do

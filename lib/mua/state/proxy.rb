@@ -62,10 +62,4 @@ class Mua::State::Proxy
   def leave(&proc)
     @state.leave << proc
   end
-  
-  # Terminates the interpreter after this state has been entered. Will execute
-  # a proc if one is supplied.
-  def terminate(&proc)
-    @state.terminate << (proc || true)
-  end
 end

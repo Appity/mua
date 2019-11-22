@@ -8,6 +8,9 @@ RSpec.describe Mua::State::Machine do
 
     expect(machine.states.keys).to eq([ :initialize, :finished ])
 
+    expect(machine).to be_prepared
+    expect(machine.states).to be_frozen
+
     expect(machine.state_defined?(:initialize)).to be(true)
     expect(machine.state_defined?(:finished)).to be(true)
     expect(machine.state_defined?(:invalid)).to be(false)
@@ -266,5 +269,55 @@ RSpec.describe Mua::State::Machine do
       [ :second, 'has' ],
       [ :third, 'lines' ]
     ])
+  end
+
+  it 'can locally transition between different sub-states' do
+    machine = Mua::State::Machine.define do
+      state(:initialize) do
+        enter do |context|
+          context.visited << :initialize
+          context.transition!(state: :a)
+        end
+      end
+
+      state(:a) do
+        enter do |context|
+          context.visited << :a
+          context.local_transition!(state: :inner_a)
+        end
+
+        state(:inner_a) do
+          enter do |context|
+            context.visited << :inner_a
+            context.transition!(state: :inner_b)
+          end
+        end
+
+        state(:inner_b) do
+          enter do |context|
+            context.visited << :inner_a
+            context.transition!(state: :outer)
+          end
+        end
+      end
+
+      state(:outer) do
+        enter do |context|
+          context.visited << :outer
+          context.transition!(state: :finished)
+        end
+      end
+
+      state(:finished) do
+        enter do |context|
+          context.visited << :finished
+          context.terminate!
+        end
+      end
+    end
+
+    context = Mua::State::Context.define(visited: -> { [ ] }).new
+
+    expect(machine.run!(context))
   end
 end

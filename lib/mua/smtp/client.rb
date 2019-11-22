@@ -247,4 +247,6 @@ class Mua::SMTP::Client < Mua::Connection::Base
   end
 end
 
+require_relative 'client/context'
 require_relative 'client/interpreter'
+require_relative 'client/support'

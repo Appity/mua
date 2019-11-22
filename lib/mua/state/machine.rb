@@ -57,6 +57,8 @@ class Mua::State::Machine < Mua::State
         context.state = result.state
 
         events << [ context, self, :transition, context.state ]
+
+        break if (event.parent)
       when Enumerator
         result.each do |event|
           case (event)
@@ -64,6 +66,8 @@ class Mua::State::Machine < Mua::State
             context.state = event.state
 
             events << [ context, self, :transition, context.state ]
+
+            break if (event.parent)
           else
             events << event
           end

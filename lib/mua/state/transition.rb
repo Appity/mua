@@ -5,15 +5,15 @@ class Mua::State::Transition
   
   # == Properties ===========================================================
 
-  attr_reader :target
   attr_reader :state
+  attr_reader :parent
  
   # == Class Methods ========================================================
   
   # == Instance Methods =====================================================
 
-  def initialize(target: nil, state: )
-    @target = target
+  def initialize(state:, parent: nil)
     @state = state
+    @parent = parent
   end
 end

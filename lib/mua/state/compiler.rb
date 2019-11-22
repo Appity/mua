@@ -32,7 +32,7 @@ module Mua::State::Compiler
           when Proc
             [ 'else', 'default.call(context, branch, *args)' ]
           when Mua::State
-            [ 'else', 'default.interpreter(context, branch, *args)' ]
+            [ 'else', 'default.interpreter.call(context, branch, *args)' ]
           when nil
             [ ]
           else
@@ -40,6 +40,8 @@ module Mua::State::Compiler
           end
         ),
         'end',
+        'rescue ArgumentError => e',
+        'raise ArgumentError, "Branch for input #{branch.inspect} has handler with #{e}"',
         'end'
       ].join("\n"))
     elsif (default)

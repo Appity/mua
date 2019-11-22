@@ -57,6 +57,12 @@ class Mua::State
     self
   end
 
+  def interpreter_branches
+    @interpret.reject do |_, v|
+      v.is_a?(Mua::State)
+    end
+  end
+
   def interpreter
     @interpreter ||= Mua::State::Compiler.dispatcher(
       @interpret.reject do |_, v|

@@ -252,6 +252,20 @@ RSpec.describe Mua::State do
     end
   end
 
+  it 'allows reflection of interpreter branches' do
+    p = -> (context) { }
+
+    state = Mua::State.define do |s|
+      s.interpret(:a, &p)
+      s.interpret(:b, &p)
+    end
+
+    expect(state.interpreter_branches).to eq([
+      [ :a, p ],
+      [ :b, p ]
+    ])
+  end
+
   it 'can be used to parse out simple inputs' do
     state = Mua::State.define do
       preprocess do |context|

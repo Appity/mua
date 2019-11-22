@@ -18,20 +18,23 @@ class Mua::State
   attr_reader :interpret
   attr_reader :terminate
 
+  attr_reader :interpreter
+  attr_reader :dispatcher
+
   # FIX: Add on_error or on_exception handlers
 
   # == Class Methods ========================================================
 
-  def self.define(name: nil, &block)
-    new(name) do |state|
+  def self.define(name: nil, parent: nil, &block)
+    new(name: name, parent: parent) do |state|
       Mua::State::Proxy.new(state, &block)
-    end.tap(&:prepare)
+    end
   end
 
   # == Instance Methods =====================================================
   
   # Creates a new state.
-  def initialize(name = nil, parent: nil, prepare: true)
+  def initialize(name: nil, parent: nil, prepare: true)
     @name = name
     @parent = parent
 
@@ -43,40 +46,45 @@ class Mua::State
     @interpret = [ ]
     @terminate = [ ]
 
+    @prepared = false
+
     yield(self) if (block_given?)
 
-    self.prepare unless (!prepare)
+    self.prepare if (prepare)
   end
 
   def prepare
-    self.prepare_for_interpreter!
+    self.before_prepare
 
-    self.dispatcher
-    self.interpreter
+    @default ||= @parent
+
+    @interpret.freeze
+
+    @dispatcher = Mua::State::Compiler.dispatcher(
+      @interpret,
+      @default
+    )
+
+    @interpreter = Mua::State::Compiler.dispatcher(
+      self.interpreter_branches,
+      @default
+    )
+
+    @prepared = true
+
+    self.after_prepare
 
     self
+  end
+
+  def prepared?
+    @prepared
   end
 
   def interpreter_branches
     @interpret.reject do |_, v|
       v.is_a?(Mua::State)
     end
-  end
-
-  def interpreter
-    @interpreter ||= Mua::State::Compiler.dispatcher(
-      @interpret.reject do |_, v|
-        v.is_a?(Mua::State)
-      end,
-      @default
-    )
-  end
-
-  def dispatcher
-    @dispatcher ||= Mua::State::Compiler.dispatcher(
-      @interpret,
-      @default
-    )
   end
 
   def run!(context)
@@ -131,7 +139,7 @@ class Mua::State
 
         break
       else
-        case (result = self.dispatcher.call(context, branch, *args))
+        case (result = @dispatcher.call(context, branch, *args))
         when Mua::State::Transition
           context.state = result.state
 
@@ -212,8 +220,12 @@ protected
     end
   end
 
-  def prepare_for_interpreter!
-    @default ||= @parent
+  def before_prepare
+    # Override in subclasses
+  end
+
+  def after_prepare
+    # Override in subclasses
   end
 end
 

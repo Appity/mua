@@ -27,7 +27,18 @@ module Mua::State::Compiler
             raise "Unsupported branch type #{match.class}"
           end
         end,
-        *(default ? [ 'else', 'default.call(context, branch, *args)' ] : [ ]),
+        *(
+          case (default)
+          when Proc
+            [ 'else', 'default.call(context, branch, *args)' ]
+          when Mua::State
+            [ 'else', 'default.interpreter(context, branch, *args)' ]
+          when nil
+            [ ]
+          else
+            raise "Unknown default class used: #{default.class}"
+          end
+        ),
         'end',
         'end'
       ].join("\n"))

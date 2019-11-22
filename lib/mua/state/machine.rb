@@ -15,42 +15,33 @@ class Mua::State::Machine < Mua::State
 
   attr_reader :initial_state
   attr_reader :final_state
+  attr_reader :states
 
   # == Class Methods ========================================================
 
   def self.define(name: nil, **options, &block)
-    new(name, **options) do |state|
+    new(name: name, **options) do |state|
       Mua::State::Proxy.new(state, &block)
-    end.tap(&:prepare)
+    end
   end
 
   # == Instance Methods =====================================================
 
-  def initialize(name = nil, initial_state: nil, final_state: nil)
-    super(name)
+  def initialize(name: nil, parent: nil, initial_state: nil, final_state: nil)
+    super(name: name, parent: parent) do
+      @initial_state = initial_state || Mua::State::INITIAL_DEFAULT
+      @final_state = final_state || Mua::State::FINAL_DEFAULT
 
-    @initial_state = initial_state || Mua::State::INITIAL_DEFAULT
-    @final_state = final_state || Mua::State::FINAL_DEFAULT
+      yield(self) if (block_given?)
 
-    @default ||= -> (context, state, *_args) do
-      raise InvalidStateError, 'Invalid state %s' % state.inspect
+      @default ||= -> (context, state, *_args) do
+        raise InvalidStateError, 'Invalid state %s' % state.inspect
+      end  
     end
   end
   
   def state_defined?(state)
-    @interpret.any? do |k, _p|
-      state === k
-    end
-  end
-
-  def states
-    @interpret.map do |k, _p|
-      k
-    end
-  end
-
-  def state
-    @state_lookup ||= -> (name) { @interpret.find { |k, _p| k == name }&.dig(1) }
+    @states.key?(state)
   end
 
   def run_interior(events, context)
@@ -61,7 +52,7 @@ class Mua::State::Machine < Mua::State
         break
       end
 
-      case (result = self.dispatcher.call(context, context.state))
+      case (result = @dispatcher.call(context, context.state))
       when Mua::State::Transition
         context.state = result.state
 
@@ -84,26 +75,37 @@ class Mua::State::Machine < Mua::State
   end
 
 protected
-  def prepare_for_interpreter!
-    _initial_state = self.initial_state
+  def before_prepare
+   _initial_state = self.initial_state
     _final_state = self.final_state
 
-    unless (state_defined?(_initial_state))
+    # NOTE: Use a manual search here to avoid caching an incomplete state list
+    unless (@interpret.any? { |n, _| n == _initial_state })
       @interpret << [
         _initial_state,
-        -> (context) do
-          context.transition!(state: _final_state)
+        Mua::State.define(name: _initial_state, parent: self) do
+          enter do |context|
+            context.transition!(state: _final_state)
+          end
         end
       ]
     end
 
-    unless (state_defined?(_final_state))
+    unless (@interpret.any? { |n, _| n == _final_state })
       @interpret << [
         _final_state,
-        -> (context) do
-          context.terminated!
+        Mua::State.define(name: _final_state, parent: self) do
+          enter do |context|
+            context.terminated!
+          end
         end
       ]
     end
+  end
+
+  def after_prepare
+    @states = @interpret.select do |_n, s|
+      s.is_a?(Mua::State)
+    end.to_h.freeze
   end
 end

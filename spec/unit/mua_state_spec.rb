@@ -12,7 +12,7 @@ RSpec.describe Mua::State do
   end
 
   it 'can be assigned a name' do
-    state = Mua::State.new(:example)
+    state = Mua::State.new(name: :example)
 
     expect(state.name).to eq(:example)
   end
@@ -322,5 +322,14 @@ RSpec.describe Mua::State do
       { number: 5322 },
       { punctuation: '!' }
     ])
+  end
+
+  context 'define()' do
+    it 'can define a state with a name' do
+      state = Mua::State.define(name: :example)
+
+      expect(state).to be_kind_of(Mua::State)
+      expect(state.name).to eq(:example)
+    end
   end
 end

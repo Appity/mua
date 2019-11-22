@@ -24,7 +24,6 @@ RSpec.describe Mua::SMTP::Client::Interpreter do
       io.puts("220 mail.example.com SMTP Example")
 
       response = io.gets
-      p response
 
       expect(response).to eq('HELO example.test')
     end

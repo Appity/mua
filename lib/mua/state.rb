@@ -90,6 +90,7 @@ class Mua::State
   end
 
   def run(context)
+    # REFACTOR: This needs to be something the Compiler can generate
     Enumerator.new do |events|
       terminated = false
 
@@ -128,6 +129,7 @@ class Mua::State
   alias_method :call, :run
 
   def run_interior(events, context)
+    # REFACTOR: This needs to be something the Compiler can generate
     loop do
       branch, *args = @parser ? @parser.call(context) : context.read
 

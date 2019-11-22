@@ -3,7 +3,7 @@ require_relative '../support/mock_stream'
 
 RSpec.describe Mua::SMTP::Client::Interpreter, type: :interpreter do
   Context = Mua::SMTP::Client::Context
-  Interpreter = Mua::SMTP::Client::Interpreter.define
+  Interpreter = Mua::SMTP::Client::Interpreter
 
   it 'defines a context type' do
     expect(Interpreter.context).to be(Context)
@@ -17,33 +17,23 @@ RSpec.describe Mua::SMTP::Client::Interpreter, type: :interpreter do
     expect(context.state).to eq(:initialize)
   end
 
-  it 'supports standard SMTP connections using HELO' do
-    simulate_exchange(
-      Interpreter,
-      '220 mail.example.com SMTP Example' =>
-        'HELO localhost',
-      '420 Closing connection' => 'QUIT'
-    )
+  it 'supports standard SMTP connections' do
+    with_interpreter(Interpreter) do |context, io|
+      io.write('220 mail.example.com SMTP Example') do |response|
+        expect(response).to eq('HELO localhost')
+      end
 
-    # expect(interpreter.state).to eq(:helo)
-    # expect(delegate.read).to eq('HELO localhost.local')
+      io.write('420 Go away') do |response|
+        expect(response).to eq('QUIT')
+      end
 
-    # io.write("250 mail.example.com Hello\r\n")
-    # expect(interpreter.state).to eq(:ready)
-
-    # interpreter.enter_state(:quit)
-
-    # expect(interpreter.state).to eq(:quit)
-    # expect(delegate.read).to eq('QUIT')
-    
-    # io.write("221 mail.example.com closing connection\r\n")
-
-    # expect(delegate).to be_closed
+      io.close
+    end
   end
 
   it 'can send mail using DATA' do
     delegate = SMTPDelegate.new
-    interpreter = Mua::SMTP::Client::Interpreter.new(delegate: delegate)
+    interpreter = Mua::SMTP::Client::Interpreter.new
 
     expect(interpreter.state).to eq(:initialized)
     
@@ -90,7 +80,7 @@ RSpec.describe Mua::SMTP::Client::Interpreter, type: :interpreter do
   
   it 'identifies ESMTP support and authenticates with EHLO but can terminate early' do
     delegate = SMTPDelegate.new
-    interpreter = Mua::SMTP::Client::Interpreter.new(delegate: delegate)
+    interpreter = Mua::SMTP::Client::Interpreter.new
 
     expect(interpreter.state).to eq(:initialized)
     
@@ -124,7 +114,7 @@ RSpec.describe Mua::SMTP::Client::Interpreter, type: :interpreter do
   
   it 'can handle multi-line EHLO responses' do
     delegate = SMTPDelegate.new(use_tls: true)
-    interpreter = Mua::SMTP::Client::Interpreter.new(delegate: delegate)
+    interpreter = Mua::SMTP::Client::Interpreter.new
 
     expect(interpreter.state).to eq(:initialized)
     expect(delegate.protocol).to eq(:smtp)
@@ -146,7 +136,7 @@ RSpec.describe Mua::SMTP::Client::Interpreter, type: :interpreter do
 
   it 'will use TLS when advertised as a feature' do
     delegate = SMTPDelegate.new(use_tls: true)
-    interpreter = Mua::SMTP::Client::Interpreter.new(delegate: delegate)
+    interpreter = Mua::SMTP::Client::Interpreter.new
     
     expect(delegate).to be_use_tls
     expect(interpreter.state).to eq(:initialized)
@@ -177,7 +167,7 @@ RSpec.describe Mua::SMTP::Client::Interpreter, type: :interpreter do
 
   it 'will not use TLS unless advertised' do
     delegate = SMTPDelegate.new(use_tls: true)
-    interpreter = Mua::SMTP::Client::Interpreter.new(delegate: delegate)
+    interpreter = Mua::SMTP::Client::Interpreter.new
 
     io.write("220 mail.example.com ESMTP Exim 4.63\r\n")
     expect(delegate.read).to eq('EHLO localhost.local')
@@ -192,7 +182,7 @@ RSpec.describe Mua::SMTP::Client::Interpreter, type: :interpreter do
 
   it 'will use plaintext authentication by default' do
     delegate = SMTPDelegate.new(username: 'tester@example.com', password: 'tester')
-    interpreter = Mua::SMTP::Client::Interpreter.new(delegate: delegate)
+    interpreter = Mua::SMTP::Client::Interpreter.new
     
     expect(delegate).to be_requires_authentication
 
@@ -218,7 +208,7 @@ RSpec.describe Mua::SMTP::Client::Interpreter, type: :interpreter do
 
   it 'will use plaintext authentication by default with ESMTP' do
     delegate = SMTPDelegate.new(username: 'tester@example.com', password: 'tester')
-    interpreter = Mua::SMTP::Client::Interpreter.new(delegate: delegate)
+    interpreter = Mua::SMTP::Client::Interpreter.new
 
     io.write("220 mail.example.com ESMTP Exim 4.63\r\n")
     expect(delegate.read).to eq('EHLO localhost.local')
@@ -238,7 +228,7 @@ RSpec.describe Mua::SMTP::Client::Interpreter, type: :interpreter do
 
   it 'can handle ESTMP auth rejections' do
     delegate = SMTPDelegate.new(username: 'tester@example.com', password: 'tester')
-    interpreter = Mua::SMTP::Client::Interpreter.new(delegate: delegate)
+    interpreter = Mua::SMTP::Client::Interpreter.new
 
     io.write("220 mx.google.com ESMTP\r\n")
     expect(delegate.read).to eq('EHLO localhost.local')
@@ -266,7 +256,7 @@ RSpec.describe Mua::SMTP::Client::Interpreter, type: :interpreter do
 
   it 'can identify unexpected responses' do
     delegate = SMTPDelegate.new(username: 'tester@example.com', password: 'tester')
-    interpreter = Mua::SMTP::Client::Interpreter.new(delegate: delegate)
+    interpreter = Mua::SMTP::Client::Interpreter.new
 
     io.write("530 Go away\r\n")
     

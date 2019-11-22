@@ -57,19 +57,19 @@ RSpec.describe Mua::Interpreter do
 
   context 'handles line-based protocols' do
     RegexpInterpreter = Mua::Interpreter.define(received: -> { [ ] }) do
-      parser(line: true)
+      parser(line: true, separator: "\r\n")
 
       state(:initialize) do
         interpret(/\AHELO\s+(.*)\z/) do |context, _, host|
           context.received << [ :helo, host ]
           context.input.puts('250 Hi')
 
-          context.parent_transition!(state: :helo)
+          context.transition!(state: :helo)
         end
       end
 
       state(:helo) do
-        interpret(/\AMAIL FROM:<([^>]+)>\z/) do |context, _, addr|
+        interpret(/\AMAIL FROM:\<([^>]+)\>\z/) do |context, _, addr|
           context.received << [ :mail_from, addr ]
           context.input.puts('250 Continue')
         end
@@ -92,13 +92,13 @@ RSpec.describe Mua::Interpreter do
       context, io = MockStream.context_writable_io(RegexpInterpreter.context)
 
       expect(context).to be_kind_of(RegexpInterpreter.context)
-      expect(io).to be_kind_of(IO)
+      expect(io).to be_kind_of(Async::IO::Stream)
       expect(context.received).to eq([ ])
 
       io.puts('HELO example.com')
       io.puts('MAIL FROM:<test@example.com>')
       io.puts('QUIT')
-      io.shutdown
+      io.io.shutdown
 
       interpreter = RegexpInterpreter.new(context)
 

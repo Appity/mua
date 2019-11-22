@@ -12,9 +12,9 @@ class Mua::Interpreter
 
   # == Class Methods ========================================================
 
-  def self.define(*attr_list, name: nil, **attr_spec, &block)
+  def self.define(*attr_list, name: nil, context: nil, **attr_spec, &block)
     Class.new(Mua::Interpreter) do
-      context = Mua::State::Context.define(
+      context ||= Mua::State::Context.define(
         *attr_list,
         **attr_spec
       )

@@ -1,87 +1,48 @@
 require_relative '../support/smtp_delegate'
+require_relative '../support/mock_stream'
 
-if (false)
 RSpec.describe Mua::SMTP::Client::Interpreter do
-  break
+  Context = Mua::SMTP::Client::Context
+  Interpreter = Mua::SMTP::Client::Interpreter.define
 
-  it 'can split simple replies' do
-    expect_mapping(
-      '250 OK' => [ 250, 'OK' ],
-      '250 Long message' => [ 250, 'Long message' ],
-      'OK' => nil,
-      '100-Example' => [ 100, 'Example', :continued ]
-    ) do |reply|
-      Mua::SMTP::Client::Interpreter.unpack_reply(reply)
-    end
-  end
+  it 'defines a context type' do
+    expect(Interpreter.context).to be(Context)
 
-  def test_parser
-    interpreter = Mua::SMTP::Client::Interpreter.new
-    
-    expect_mapping(
-      "250 OK\r\n" => [ 250, 'OK' ],
-      "250 Long message\r\n" => [ 250, 'Long message' ],
-      "OK\r\n" => nil,
-      "100-Example\r\n" => [ 100, 'Example', :continued ],
-      "100-Example" => nil
-    ) do |reply|
-      interpreter.parse(reply.dup)
-    end
-  end
-
-  it 'can encode for DATA by avoiding single dot lines' do
-    sample_data = "Line 1\r\nLine 2\r\n.\r\nLine 3\r\n.Line 4\r\n".freeze
-    
-    expect(Mua::SMTP::Client::Interpreter.encode_data(sample_data)).to eq("Line 1\r\nLine 2\r\n..\r\nLine 3\r\n..Line 4\r\n")
-  end
-
-  it 'can decode Base64-encoded content with Interpreter#base64' do
-    expect_mapping(
-      'example' => 'example',
-      "\x7F" => "\x7F",
-      nil => ''
-    ) do |example|
-      Mua::SMTP::Client::Interpreter.base64(example).unpack('m')[0]
-    end
-  end
-  
-  it '#encode_authentication can encode username/password pairs correctly' do
-    expect_mapping(
-      %w[ tester tester ] => 'AHRlc3RlcgB0ZXN0ZXI=',
-      %w[ username password ] => 'AHVzZXJuYW1lAHBhc3N3b3Jk'
-    ) do |username, password|
-      Mua::SMTP::Client::Interpreter.encode_auth(username, password)
-    end
+    expect(Interpreter.new(nil).context).to be_kind_of(Context)
   end
 
   it 'starts out in the initailized state' do
-    interpreter = Mua::SMTP::Client::Interpreter.new
-    
-    expect(interpreter.state).to eq(:initialized)
+    context = Interpreter.context.new
+
+    expect(context.state).to eq(:initialize)
   end
 
   it 'supports standard SMTP connections using HELO' do
-    delegate = SMTPDelegate.new
-    interpreter = Mua::SMTP::Client::Interpreter.new(delegate: delegate)
+    MockStream.line_exchange(Interpreter) do |interpreter, context, io|
+      context.hostname = 'example.test'
 
-    expect(interpreter.state).to eq(:initialized)
+      io.puts("220 mail.example.com SMTP Example")
+
+      response = io.gets
+      p response
+
+      expect(response).to eq('HELO example.test')
+    end
+
+    # expect(interpreter.state).to eq(:helo)
+    # expect(delegate.read).to eq('HELO localhost.local')
+
+    # io.write("250 mail.example.com Hello\r\n")
+    # expect(interpreter.state).to eq(:ready)
+
+    # interpreter.enter_state(:quit)
+
+    # expect(interpreter.state).to eq(:quit)
+    # expect(delegate.read).to eq('QUIT')
     
-    interpreter.process("220 mail.example.com SMTP Example\r\n")
+    # io.write("221 mail.example.com closing connection\r\n")
 
-    expect(interpreter.state).to eq(:helo)
-    expect(delegate.read).to eq('HELO localhost.local')
-
-    interpreter.process("250 mail.example.com Hello\r\n")
-    expect(interpreter.state).to eq(:ready)
-
-    interpreter.enter_state(:quit)
-
-    expect(interpreter.state).to eq(:quit)
-    expect(delegate.read).to eq('QUIT')
-    
-    interpreter.process("221 mail.example.com closing connection\r\n")
-
-    expect(delegate).to be_closed
+    # expect(delegate).to be_closed
   end
 
   it 'can send mail using DATA' do
@@ -90,12 +51,12 @@ RSpec.describe Mua::SMTP::Client::Interpreter do
 
     expect(interpreter.state).to eq(:initialized)
     
-    interpreter.process("220 mail.example.com SMTP Example\r\n")
+    io.write("220 mail.example.com SMTP Example\r\n")
 
     expect(interpreter.state).to eq(:helo)
     expect(delegate.read).to eq('HELO localhost.local')
 
-    interpreter.process("250 mail.example.com Hello\r\n")
+    io.write("250 mail.example.com Hello\r\n")
     expect(interpreter.state).to eq(:ready)
 
     delegate.active_message = {
@@ -110,23 +71,23 @@ RSpec.describe Mua::SMTP::Client::Interpreter do
     expect(interpreter.state).to eq(:mail_from)
     expect(delegate.read).to eq('MAIL FROM:<from@example.com>')
     
-    interpreter.process("250 OK\r\n")
+    io.write("250 OK\r\n")
     
     expect(interpreter.state).to eq(:rcpt_to)
 
     expect(delegate.read).to eq('RCPT TO:<to@example.com>')
     
-    interpreter.process("250 Accepted\r\n")
+    io.write("250 Accepted\r\n")
     
     expect(interpreter.state).to eq(:data)
     
     expect(delegate.read).to eq('DATA')
 
-    interpreter.process("354 Enter message, ending with \".\" on a line by itself\r\n")
+    io.write("354 Enter message, ending with \".\" on a line by itself\r\n")
     
     expect(interpreter.state).to eq(:sending)
     
-    interpreter.process("250 OK id=1PN95Q-00072L-Uw\r\n")
+    io.write("250 OK id=1PN95Q-00072L-Uw\r\n")
     
     expect(interpreter.state).to eq(:ready)
   end
@@ -137,21 +98,21 @@ RSpec.describe Mua::SMTP::Client::Interpreter do
 
     expect(interpreter.state).to eq(:initialized)
     
-    interpreter.process("220 mail.example.com ESMTP Exim 4.63\r\n")
+    io.write("220 mail.example.com ESMTP Exim 4.63\r\n")
 
     expect(interpreter.state).to eq(:ehlo)
     expect(delegate.read).to eq('EHLO localhost.local')
 
-    interpreter.process("250-mail.example.com Hello\r\n")
+    io.write("250-mail.example.com Hello\r\n")
     expect(interpreter.state).to eq(:ehlo)
 
-    interpreter.process("250-SIZE 52428800\r\n")
+    io.write("250-SIZE 52428800\r\n")
     expect(interpreter.state).to eq(:ehlo)
 
-    interpreter.process("250-PIPELINING\r\n")
+    io.write("250-PIPELINING\r\n")
     expect(interpreter.state).to eq(:ehlo)
 
-    interpreter.process("250-STARTTLS\r\n")
+    io.write("250-STARTTLS\r\n")
     expect(interpreter.state).to eq(:ehlo)
     
     interpreter.enter_state(:quit)
@@ -159,7 +120,7 @@ RSpec.describe Mua::SMTP::Client::Interpreter do
     expect(interpreter.state).to eq(:quit)
     expect(delegate.read).to eq('QUIT')
     
-    interpreter.process("221 mail.example.com closing connection\r\n")
+    io.write("221 mail.example.com closing connection\r\n")
 
     expect(interpreter.state).to eq(:terminated)
     expect(delegate).to be_closed
@@ -172,17 +133,17 @@ RSpec.describe Mua::SMTP::Client::Interpreter do
     expect(interpreter.state).to eq(:initialized)
     expect(delegate.protocol).to eq(:smtp)
 
-    interpreter.process("220-mail.example.com Hello ESMTP Example Server\r\n")
+    io.write("220-mail.example.com Hello ESMTP Example Server\r\n")
     expect(interpreter.state).to eq(:initialized)
     expect(delegate.protocol).to eq(:esmtp)
 
-    interpreter.process("220-This is a long notice that is posted here\r\n")
+    io.write("220-This is a long notice that is posted here\r\n")
     expect(interpreter.state).to eq(:initialized)
 
-    interpreter.process("220-as some servers like to have a little chat\r\n")
+    io.write("220-as some servers like to have a little chat\r\n")
     expect(interpreter.state).to eq(:initialized)
 
-    interpreter.process("220 with you before getting down to business.\r\n")
+    io.write("220 with you before getting down to business.\r\n")
 
     expect(interpreter.state).to eq(:ehlo)
   end
@@ -194,17 +155,17 @@ RSpec.describe Mua::SMTP::Client::Interpreter do
     expect(delegate).to be_use_tls
     expect(interpreter.state).to eq(:initialized)
 
-    interpreter.process("220 mail.example.com ESMTP Exim 4.63\r\n")
+    io.write("220 mail.example.com ESMTP Exim 4.63\r\n")
     expect(interpreter.state).to eq(:ehlo)
     expect(delegate.read).to eq('EHLO localhost.local')
     
-    interpreter.process("250-mail.example.com Hello\r\n")
-    interpreter.process("250-RANDOMCOMMAND\r\n")
-    interpreter.process("250-EXAMPLECOMMAND\r\n")
-    interpreter.process("250-SIZE 52428800\r\n")
-    interpreter.process("250-PIPELINING\r\n")
-    interpreter.process("250-STARTTLS\r\n")
-    interpreter.process("250 HELP\r\n")
+    io.write("250-mail.example.com Hello\r\n")
+    io.write("250-RANDOMCOMMAND\r\n")
+    io.write("250-EXAMPLECOMMAND\r\n")
+    io.write("250-SIZE 52428800\r\n")
+    io.write("250-PIPELINING\r\n")
+    io.write("250-STARTTLS\r\n")
+    io.write("250 HELP\r\n")
     
     expect(delegate).to be_tls_support
 
@@ -212,7 +173,7 @@ RSpec.describe Mua::SMTP::Client::Interpreter do
     expect(delegate.read).to eq('STARTTLS')
     expect(delegate).to_not be_started_tls
     
-    interpreter.process("220 TLS go ahead\r\n")
+    io.write("220 TLS go ahead\r\n")
     expect(delegate).to be_started_tls
     
     expect(interpreter.state).to eq(:ehlo)
@@ -222,11 +183,11 @@ RSpec.describe Mua::SMTP::Client::Interpreter do
     delegate = SMTPDelegate.new(use_tls: true)
     interpreter = Mua::SMTP::Client::Interpreter.new(delegate: delegate)
 
-    interpreter.process("220 mail.example.com ESMTP Exim 4.63\r\n")
+    io.write("220 mail.example.com ESMTP Exim 4.63\r\n")
     expect(delegate.read).to eq('EHLO localhost.local')
     
-    interpreter.process("250-mail.example.com Hello\r\n")
-    interpreter.process("250 HELP\r\n")
+    io.write("250-mail.example.com Hello\r\n")
+    io.write("250 HELP\r\n")
     
     expect(delegate).to_not be_started_tls
 
@@ -241,20 +202,20 @@ RSpec.describe Mua::SMTP::Client::Interpreter do
 
     expect(interpreter.state).to eq(:initialized)
 
-    interpreter.process("220 mail.example.com SMTP Server 1.0\r\n")
+    io.write("220 mail.example.com SMTP Server 1.0\r\n")
     expect(delegate.read).to eq('HELO localhost.local')
 
     expect(interpreter.state).to eq(:helo)
     
-    interpreter.process("250-mail.example.com Hello\r\n")
-    interpreter.process("250 HELP\r\n")
+    io.write("250-mail.example.com Hello\r\n")
+    io.write("250 HELP\r\n")
 
     expect(delegate).to_not be_started_tls
     
     expect(interpreter.state).to eq(:auth)
     expect(delegate.read).to eq('AUTH PLAIN AHRlc3RlckBleGFtcGxlLmNvbQB0ZXN0ZXI=')
     
-    interpreter.process("235 Accepted\r\n")
+    io.write("235 Accepted\r\n")
     
     expect(interpreter.state).to eq(:ready)
   end
@@ -263,18 +224,18 @@ RSpec.describe Mua::SMTP::Client::Interpreter do
     delegate = SMTPDelegate.new(username: 'tester@example.com', password: 'tester')
     interpreter = Mua::SMTP::Client::Interpreter.new(delegate: delegate)
 
-    interpreter.process("220 mail.example.com ESMTP Exim 4.63\r\n")
+    io.write("220 mail.example.com ESMTP Exim 4.63\r\n")
     expect(delegate.read).to eq('EHLO localhost.local')
     
-    interpreter.process("250-mail.example.com Hello\r\n")
-    interpreter.process("250 HELP\r\n")
+    io.write("250-mail.example.com Hello\r\n")
+    io.write("250 HELP\r\n")
     
     expect(delegate).to_not be_started_tls
 
     expect(interpreter.state).to eq(:auth)
     expect(delegate.read).to eq('AUTH PLAIN AHRlc3RlckBleGFtcGxlLmNvbQB0ZXN0ZXI=')
     
-    interpreter.process("235 Accepted\r\n")
+    io.write("235 Accepted\r\n")
     
     expect(interpreter.state).to eq(:ready)
   end
@@ -283,25 +244,25 @@ RSpec.describe Mua::SMTP::Client::Interpreter do
     delegate = SMTPDelegate.new(username: 'tester@example.com', password: 'tester')
     interpreter = Mua::SMTP::Client::Interpreter.new(delegate: delegate)
 
-    interpreter.process("220 mx.google.com ESMTP\r\n")
+    io.write("220 mx.google.com ESMTP\r\n")
     expect(delegate.read).to eq('EHLO localhost.local')
     
-    interpreter.process("250-mx.google.com at your service\r\n")
-    interpreter.process("250 HELP\r\n")
+    io.write("250-mx.google.com at your service\r\n")
+    io.write("250 HELP\r\n")
 
     expect(delegate).to_not be_started_tls
 
     expect(interpreter.state).to eq(:auth)
     expect(delegate.read).to eq('AUTH PLAIN AHRlc3RlckBleGFtcGxlLmNvbQB0ZXN0ZXI=')
     
-    interpreter.process("535-5.7.1 Username and Password not accepted. Learn more at\r\n")
-    interpreter.process("535 5.7.1 http://mail.google.com/support/bin/answer.py?answer=14257\r\n")
+    io.write("535-5.7.1 Username and Password not accepted. Learn more at\r\n")
+    io.write("535 5.7.1 http://mail.google.com/support/bin/answer.py?answer=14257\r\n")
     
     expect(interpreter.error).to eq('5.7.1 Username and Password not accepted. Learn more at http://mail.google.com/support/bin/answer.py?answer=14257')
 
     expect(interpreter.state).to eq(:quit)
     
-    interpreter.process("221 2.0.0 closing connection\r\n")
+    io.write("221 2.0.0 closing connection\r\n")
     
     expect(interpreter.state).to eq(:terminated)
     expect(delegate).to be_closed
@@ -311,10 +272,9 @@ RSpec.describe Mua::SMTP::Client::Interpreter do
     delegate = SMTPDelegate.new(username: 'tester@example.com', password: 'tester')
     interpreter = Mua::SMTP::Client::Interpreter.new(delegate: delegate)
 
-    interpreter.process("530 Go away\r\n")
+    io.write("530 Go away\r\n")
     
     expect(interpreter.state).to eq(:terminated)
     expect(delegate).to be_closed
   end
-end
 end

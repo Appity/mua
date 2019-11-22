@@ -1,5 +1,6 @@
 module Mua::SMTP::Client::ContextExtensions
-  def write(*lines)
+  def reply(*lines)
+    p lines
     self.input.puts(*lines, separator: Mua::Constants::CRLF)
   end
 

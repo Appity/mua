@@ -1,0 +1,3 @@
+dialog:
+- send: 420 Go away
+- recv: QUIT

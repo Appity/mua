@@ -30,14 +30,12 @@ RSpec.describe Mua::SMTP::Client::Interpreter, type: :interpreter do
   end
 
   context 'has pre-defined SMTP dialog tests' do
-    Dir.glob(File.expand_path('../smtp/dialog/*.txt', __dir__)).each do |f|
-      comment = File.open(f).each_line.first
+    Dir.glob(File.expand_path('../smtp/dialog/*.yml', __dir__)).each do |path|
+      script = YAML.load(File.open(path))
 
-      next unless (comment.sub!(/\A\#\s*/, ''))
-
-      it comment, dynamic: true do
+      it(script['name'] || File.basename(path, '.yml').gsub('-', ' '), dynamic: true) do
         with_interpreter(Interpreter) do |context, io|
-          io.run_dialog(self, f)
+          io.run_dialog(self, script)
         end
       end
     end

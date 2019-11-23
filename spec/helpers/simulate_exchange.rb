@@ -27,25 +27,16 @@ module SimulateExchange
       end
     end
 
-    def dialog_path(script)
-      File.expand_path(script, File.expand_path('../smtp/dialog', __dir__))
-    end
-
-    def run_dialog(rspec, script)
-      File.open(dialog_path(script)).each_line do |line|
-        next unless (line.match(/\S/))
-
-        sr, data = line.chomp.scan(/\A([<>])\s*(.*)\z/)[0]
-
-        case (sr)
-        when '>'
+    def run_dialog(rspec, script, close: true)
+      script['dialog'].each do |cmd|
+        if (data = cmd['send'])
           self.puts(data)
-        when '<'
+        elsif (data = cmd['recv'])
           rspec.expect(self.gets).to rspec.eq(data)
         end
       end
 
-      @io.close
+      @io.close if (close)
     end
 
     def puts(*args)

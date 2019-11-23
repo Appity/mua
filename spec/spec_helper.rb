@@ -1,5 +1,6 @@
 require 'bundler/setup'
 require 'mua'
+require 'yaml'
 
 module TestTriggerHelper
   def self.included(base)

@@ -14,13 +14,16 @@ module SimulateExchange
       @context = interpreter_type.context.new(input: @cio)
       @interpreter = interpreter_type.new(@context)
 
-      @interpreter_task = reactor.async do
+      @interpreter_task = reactor.async do |task|
+        @context.reactor = task
         @interpreter.run!
       end
 
       @test_task = reactor.async do |task|
         block.call(@context, self, task)
       end
+
+      [ @interpreter_task, @test_task ].map(&:wait)
 
     ensure
       @interpreter_task.stop
@@ -41,7 +44,13 @@ module SimulateExchange
         elsif (data = cmd['send'])
           rspec.expect(self.gets).to rspec.eq(data)
         elsif (data = cmd['deliver'])
-          # @context.deliver
+          [ data ].flatten.each do |message|
+            @context.deliver(
+              mail_from: message['mail_from'],
+              rcpt_to: message['rcpt_to'],
+              data: message['data']
+            )
+          end
         elsif (data = cmd['quit'])
           @context.quit
         end

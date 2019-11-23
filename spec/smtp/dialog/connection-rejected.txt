@@ -1,0 +1,5 @@
+# connection rejected after HELO
+> 220 mail.example.com SMTP Example
+< HELO localhost
+> 420 Go away
+< QUIT

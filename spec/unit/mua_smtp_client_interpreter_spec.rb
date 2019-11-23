@@ -19,25 +19,35 @@ RSpec.describe Mua::SMTP::Client::Interpreter, type: :interpreter do
 
   it 'supports standard SMTP connections' do
     with_interpreter(Interpreter) do |context, io|
-      io.write('220 mail.example.com SMTP Example') do |response|
-        expect(response).to eq('HELO localhost')
-      end
+      io.puts('220 mail.example.com SMTP Example')
+      expect(io.gets).to eq('HELO localhost')
 
-      io.write('420 Go away') do |response|
-        expect(response).to eq('QUIT')
-      end
+      io.puts('420 Go away')
+      expect(io.gets).to eq('QUIT')
 
       io.close
     end
   end
 
-  it 'can send mail using DATA' do
-    delegate = SMTPDelegate.new
-    interpreter = Mua::SMTP::Client::Interpreter.new
+  context 'has pre-defined SMTP dialog tests' do
+    Dir.glob(File.expand_path('../smtp/dialog/*.txt', __dir__)).each do |f|
+      comment = File.open(f).each_line.first
 
-    expect(interpreter.state).to eq(:initialized)
-    
-    io.write("220 mail.example.com SMTP Example\r\n")
+      next unless (comment.sub!(/\A\#\s*/, ''))
+
+      it comment, dynamic: true do
+        with_interpreter(Interpreter) do |context, io|
+          io.run_dialog(self, f)
+        end
+      end
+    end
+  end
+
+  it 'can send mail using DATA' do
+    with_interpreter(Interpreter) do |context, io|
+      io.puts('220 mail.example.com SMTP Example') do
+      end
+    end
 
     expect(interpreter.state).to eq(:helo)
     expect(delegate.read).to eq('HELO localhost.local')

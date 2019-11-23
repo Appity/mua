@@ -1,0 +1,4 @@
+# connection accepted
+> 220 mail.example.com SMTP Example
+< HELO localhost
+> 250 Accepting connection from localhost

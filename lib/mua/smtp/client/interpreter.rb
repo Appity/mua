@@ -7,7 +7,6 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
   context: Mua::SMTP::Client::Context
 ) do
   parser(line: true, chomp: true) do |context, data|
-    p data if (ENV['DEBUG'])
     Mua::SMTP::Client::Support.unpack_reply(data.chomp)
   end
 
@@ -52,7 +51,7 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
     end
 
     interpret(250) do |context|
-      if (context.requires_authentication?)
+      if (context.auth_required?)
         context.transition!(state: :auth)
       else
         context.transition!(state: :established)

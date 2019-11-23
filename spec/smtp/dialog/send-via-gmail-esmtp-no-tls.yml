@@ -1,3 +1,4 @@
+tags: gmail
 hostname: example.test
 dialog:
 - recv: 220 mx.google.com ESMTP v24si158824vsi.137 - gsmtp
@@ -11,9 +12,9 @@ dialog:
 - recv: 250-CHUNKING
 - recv: 250 SMTPUTF8
 - deliver:
-  - from: sender@example.test
-  - to: recipient@example.org
-  - body: |
+  - mail_from: sender@example.test
+    rcpt_to: recipient@example.org
+    data: |
       From: Sender <sender@example.test>
       To: Recipient <recipient@example.org>
 

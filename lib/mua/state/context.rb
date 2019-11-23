@@ -11,7 +11,7 @@ class Mua::State::Context
 
   # == Properties ===========================================================
 
-  attr_accessor :task
+  attr_accessor :reactor
   attr_accessor :state
   attr_accessor :input
   attr_boolean :terminated
@@ -24,8 +24,8 @@ class Mua::State::Context
   
   # == Instance Methods =====================================================
 
-  def initialize(task: nil, state: nil, input: nil)
-    @task = task
+  def initialize(reactor: nil, state: nil, input: nil)
+    @reactor = reactor
     @state = state || self.initial_state
     @input = input
     @terminated = false
@@ -74,9 +74,9 @@ class Mua::State::Context
     Mua::State::Transition.new(state: self.final_state)
   end
 
-  # Returns true if a task is associated with this context, false otherwise.
-  def task?
-    !!@task
+  # Returns true if a reactor is associated with this context, false otherwise.
+  def reactor?
+    !!@reactor
   end
 end
 

@@ -1,42 +1,39 @@
-RSpec.describe Mua::State::Context do
+RSpec.describe Mua::State::Context, type: :reactor do
   it 'represents a context used to persist information between states and state machines' do
     context = Mua::State::Context.new
 
     expect(context).to be
-    expect(context.task).to be(nil)
+    expect(context.reactor).to be(nil)
     expect(context.input).to be(nil)
     expect(context.state).to eq(:initialize)
     expect(context).to_not be_terminated
   end
 
   it 'has a constructor that accepts a block for customization' do
-    Async do |task|
-      context = Mua::State::Context.new(input: :default, state: :none) do |c|
-        c.task = task
-        c.input = 'demo'
-        c.state = :finished
-      end
-
-      expect(context).to be
-      expect(context.task).to be(task)
-      expect(context.input).to eq('demo')
-      expect(context.state).to eq(:finished)
-      expect(context).to_not be_terminated
+    p reactor
+    context = Mua::State::Context.new(input: :default, state: :none) do |c|
+      c.reactor = reactor
+      c.input = 'demo'
+      c.state = :finished
     end
+
+    expect(context).to be
+    expect(context.reactor).to be(reactor)
+    expect(context.input).to eq('demo')
+    expect(context.state).to eq(:finished)
+    expect(context).to_not be_terminated
   end
 
   it 'can have properties assigned directly' do
-    Async do |task|
-      context = Mua::State::Context.new
+    context = Mua::State::Context.new
 
-      context.task = task
-      context.state = :initialized
-      context.terminated!
+    context.reactor = reactor
+    context.state = :initialized
+    context.terminated!
 
-      expect(context.task).to be(task)
-      expect(context.state).to eq(:initialized)
-      expect(context).to be_terminated
-    end
+    expect(context.reactor).to be(reactor)
+    expect(context.state).to eq(:initialized)
+    expect(context).to be_terminated
   end
 
   it 'can have boolean attributes defined' do
@@ -84,13 +81,13 @@ RSpec.describe Mua::State::Context do
     expect(context).to be_customized
   end
 
-  it 'can be associated with an Async task' do
+  it 'can be associated with an Async reactor' do
     executed = false
     
-    Async do |task|
-      context = Mua::State::Context.new(task: task)
+    Async do |reactor|
+      context = Mua::State::Context.new(reactor: reactor)
 
-      expect(context.task).to be(task)
+      expect(context.reactor).to be(reactor)
 
       executed = true
     end

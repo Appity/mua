@@ -134,8 +134,8 @@ module Mua::State::Context::Builder
   end
 
   def self.define_initialize!(type, attrs)
-    type.send(:define_method, :initialize) do |task: nil, state: nil, input: nil, **args|
-      super(task: task, state: state, input: input)
+    type.send(:define_method, :initialize) do |reactor: nil, state: nil, input: nil, **args|
+      super(reactor: reactor, state: state, input: input)
 
       attrs.each do |name, meta|
         if (args.key?(name))

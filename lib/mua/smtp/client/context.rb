@@ -22,6 +22,10 @@ Mua::SMTP::Client::Context = Mua::State::Context.define(
     default: false,
     boolean: true
   },
+  tls_supported: {
+    default: false,
+    boolean: true
+  },
   proxy: {
     default: false,
     boolean: true

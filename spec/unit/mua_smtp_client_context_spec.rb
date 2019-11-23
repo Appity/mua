@@ -14,6 +14,7 @@ RSpec.describe Mua::SMTP::Client::Context do
     expect(context).to_not be_auth_support
     expect(context).to_not be_auth_required
     expect(context).to_not be_tls
+    expect(context).to_not be_tls_supported
     expect(context).to_not be_proxy
     expect(context.timeout).to be(Mua::Constants::TIMEOUT_DEFAULT)
   end
@@ -26,10 +27,11 @@ RSpec.describe Mua::SMTP::Client::Context do
     context.remote = 'mail.example.net'
     context.hostname = 'mta.example.org'
     context.protocol = :esmtp
-    context.auth_support = true
-    context.auth_required = true
-    context.tls = true
-    context.proxy = true
+    context.auth_support!
+    context.auth_required!
+    context.tls!
+    context.tls_supported!
+    context.proxy!
     context.timeout = 999
 
     expect(context.username).to eq('user')
@@ -40,6 +42,7 @@ RSpec.describe Mua::SMTP::Client::Context do
     expect(context).to be_auth_support
     expect(context).to be_auth_required
     expect(context).to be_tls
+    expect(context).to be_tls_supported
     expect(context).to be_proxy
     expect(context.timeout).to eq(999)
   end

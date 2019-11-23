@@ -3,6 +3,10 @@ module Mua::SMTP::Client::ContextExtensions
     self.input.puts(*lines, separator: Mua::Constants::CRLF)
   end
 
+  def quit
+    # ... Inject state transition
+  end
+
   # REFACTOR: Are these useful? The new event model may nullify this
   def connect_notification(code, message = nil)
     # ...

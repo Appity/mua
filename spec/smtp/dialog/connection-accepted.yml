@@ -1,4 +1,4 @@
 dialog:
-- send: 220 mail.example.com SMTP Example
-- recv: HELO localhost
-- send: 250 Accepting connection from localhost
+- recv: 220 mail.example.com SMTP Example
+- send: HELO localhost
+- recv: 250 Accepting connection from localhost

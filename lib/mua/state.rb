@@ -133,6 +133,8 @@ class Mua::State
     loop do
       branch, *args = @parser ? @parser.call(context) : context.read
 
+      run = true
+
       case (branch)
       when nil
         context.terminated!
@@ -142,7 +144,11 @@ class Mua::State
         context.state = branch.state
 
         break unless (branch.parent === false)
-      else
+
+        branch = branch.state
+      end
+
+      if (run)
         case (result = @dispatcher.call(context, branch, *args))
         when Mua::State::Transition
           context.state = result.state

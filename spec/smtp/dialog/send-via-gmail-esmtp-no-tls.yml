@@ -1,0 +1,31 @@
+hostname: example.test
+dialog:
+- recv: 220 mx.google.com ESMTP v24si158824vsi.137 - gsmtp
+- send: EHLO example.test
+- recv: 250 Accepting connection from example.test
+- recv: 250-mx.google.com at your service
+- recv: 250-SIZE 157286400
+- recv: 250-8BITMIME
+- recv: 250-ENHANCEDSTATUSCODES
+- recv: 250-PIPELINING
+- recv: 250-CHUNKING
+- recv: 250 SMTPUTF8
+- deliver:
+  - from: sender@example.test
+  - to: recipient@example.org
+  - body: |
+      From: Sender <sender@example.test>
+      To: Recipient <recipient@example.org>
+
+      Example email!
+- send: MAIL FROM:<sender@example.test>
+- recv: 250 2.1.0 OK v24si158824vsi.137 - gsmtp
+- send: RCPT TO:<recipient@example.org>
+- recv: 250 2.1.0 OK v24si158824vsi.137 - gsmtp
+- send: DATA
+- recv: 354  Go ahead v24si158824vsi.137 - gsmtp
+- send: ...
+- recv: 250 2.0.0 OK  1574372161 v24si158824vsi.137 - gsmtp
+- quit: true
+- send: QUIT
+- recv: 221 2.0.0 closing connection w16si816216vsf.15 - gsmtp

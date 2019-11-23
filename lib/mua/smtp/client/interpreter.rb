@@ -82,9 +82,9 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
       end
 
       unless (continues)
-        if (context.use_tls? and context.tls_support? and !@tls)
+        if (context.tls? and context.tls_supported? and !@tls)
           context.transition!(state: :starttls)
-        elsif (context.requires_authentication?)
+        elsif (context.auth_required?)
           context.transition!(state: :auth)
         else
           context.transition!(state: :established)

@@ -4,7 +4,7 @@ Mua::SMTP::Client::Context = Mua::State::Context.define(
   :username,
   :password,
   :remote,
-  :task,
+  :read_task,
   hostname: {
     default: 'localhost'
   },
@@ -36,6 +36,9 @@ Mua::SMTP::Client::Context = Mua::State::Context.define(
   },
   delivery_queue: {
     default: -> { [ ] }
+  },
+  delivery: {
+    default: nil
   },
   includes: Mua::SMTP::Client::ContextExtensions
 )

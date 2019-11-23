@@ -4,9 +4,7 @@ require 'async/rspec'
 require_relative '../support/smtp_delegate'
 require_relative '../support/mock_stream'
 
-RSpec.describe Mua::SMTP::Client::Interpreter, type: :interpreter, timeout: 5 do
-  include_context Async::RSpec::Reactor
-
+RSpec.describe Mua::SMTP::Client::Interpreter, type: [ :interpreter, :reactor ], timeout: 5 do
   Context = Mua::SMTP::Client::Context
   Interpreter = Mua::SMTP::Client::Interpreter
 
@@ -38,7 +36,11 @@ RSpec.describe Mua::SMTP::Client::Interpreter, type: :interpreter, timeout: 5 do
     Dir.glob(File.expand_path('../smtp/dialog/*.yml', __dir__)).each do |path|
       script = YAML.load(File.open(path))
 
-      it(script['name'] || File.basename(path, '.yml').gsub('-', ' '), dynamic: true) do
+      tags = [ *script['tags'] ].compact.map do |tag|
+        [ tag.to_sym, true ]
+      end.to_h
+
+      it(script['name'] || File.basename(path, '.yml').gsub('-', ' '), dynamic: true, **tags) do
         with_interpreter(Interpreter) do |context, io|
           io.run_dialog(self, script)
         end

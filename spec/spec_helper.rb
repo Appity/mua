@@ -2,6 +2,10 @@ require 'bundler/setup'
 require 'mua'
 require 'yaml'
 
+require 'async'
+require 'async/io'
+require 'async/rspec'
+
 module TestTriggerHelper
   def self.included(base)
     base.class_eval do
@@ -33,6 +37,7 @@ RSpec.configure do |config|
 
   config.include ExpectMappingHelper
   config.include SimulateExchange, type: :interpreter
+  config.include_context Async::RSpec::Reactor, type: :reactor
 end
 
 RSpec::Matchers.define :be_an_array_of do |expected|

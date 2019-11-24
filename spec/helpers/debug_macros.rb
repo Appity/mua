@@ -19,7 +19,7 @@ module DebugMacros
       self
     end
 
-    def dins
+    def dins(*v)
     end
   end
 end

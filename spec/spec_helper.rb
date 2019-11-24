@@ -20,6 +20,8 @@ module TestTriggerHelper
   end
 end
 
+require_relative 'helpers/debug_macros'
+
 require_relative 'helpers/expect_mapping'
 require_relative 'helpers/interpreter_debug_log'
 require_relative 'helpers/simulate_exchange'

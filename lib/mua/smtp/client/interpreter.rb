@@ -7,7 +7,9 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
   context: Mua::SMTP::Client::Context
 ) do
   parser do |context|
-    Mua::SMTP::Client::Support.unpack_reply(context.read_line)
+    context.read_line do |line|
+      Mua::SMTP::Client::Support.unpack_reply(line)
+    end
   end
 
   state(:initialize) do
@@ -26,12 +28,7 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
       end
 
       unless (continues)
-        case (context.protocol)
-        when :esmtp
-          context.transition!(state: :ehlo)
-        else
-          context.transition!(state: :helo)
-        end
+        context.transition!(state: context.protocol == :esmtp ? :ehlo : :helo)
       end
     end
     
@@ -65,24 +62,25 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
     end
 
     interpret(250) do |context, message, continues|
-      message_parts = message.split(/\s+/)
+      feature, *value = message.split(/\s+/)
 
-      case (message_parts[0].to_s.upcase)
-      when 'SIZE'
-        context.max_size = message_parts[1].to_i
-      when 'PIPELINING'
-        context.pipelining = true
-      when 'STARTTLS'
-        context.tls_support = true
-      when 'AUTH'
-        context.auth_support = message_parts[1, message_parts.length].inject({ }) do |h, v|
-          h[v] = true
-          h
+      value.map do |v|
+        case (v)
+        when /\A\d+\z/
+          v.to_i
+        else
+          v
         end
       end
 
+      if (value.length == 1)
+        value = value[0]
+      end
+
+      context.features[feature.downcase.to_sym] = value
+
       unless (continues)
-        if (context.tls? and context.tls_supported? and !@tls)
+        if (context.features[:starttls] and context.tls_requested? and !@tls)
           context.transition!(state: :starttls)
         elsif (context.auth_required?)
           context.transition!(state: :auth)
@@ -155,7 +153,11 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
   
   state(:ready) do
     enter do |context|
-      # context.after_ready
+      if (context.close_requested?)
+        context.transition!(state: :quit)
+      elsif (context.message_queued?)
+        context.transition!(state: :send)
+      end
     end
     
     interpret(400..499) do |context|
@@ -166,13 +168,15 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
   
   state(:send) do
     enter do |context|
-      context.transition!(state: :mail_from)
+      if (context.message_pop)
+        context.transition!(state: :mail_from)
+      end
     end
   end
 
   state(:deliver) do
     enter do |context|
-      if (context.delivery = context.delivery_queue.shift)
+      if (context.message = context.message_queue.shift)
         context.transition!(:mail_from)
       end
     end
@@ -180,8 +184,8 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
   
   state(:mail_from) do
     enter do |context|
-      if (context.delivery)
-        context.reply("MAIL FROM:<#{context.delivery.mail_from}>")
+      if (context.message)
+        context.reply("MAIL FROM:<#{context.message.mail_from}>")
       else
         context.message_callback(false, "Delegate has no active message")
         context.transition!(state: :reset)
@@ -201,8 +205,8 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
   
   state(:rcpt_to) do
     enter do |context|
-      if (context.delivery)
-        context.reply("RCPT TO:<#{context.delivery.rcpt_to}>")
+      if (context.message)
+        context.reply("RCPT TO:<#{context.message.rcpt_to}>")
       else
         context.message_callback(false, "Delegate has no active message")
         context.transition!(state: :reset)
@@ -210,11 +214,10 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
     end
     
     interpret(250) do |context, reply_message, continues|
-      handle_reply_continuation(250, reply_message, continues) do |reply_code, reply_message|
-        if (context.delivery[:test])
-          context_call(:after_message_sent, reply_code, reply_message)
-
-          context.transition!(state: :reset)
+      unless (continues)
+        # FIX: Test for multi-line responses with some context helper
+        if (context.message.test?)
+            context.transition!(state: :reset)
         else
           context.transition!(state: :data)
         end
@@ -222,9 +225,7 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
     end
     
     interpret(500..599) do |context, reply_code, reply_message, continues|
-      handle_reply_continuation(reply_code, reply_message, continues) do |reply_code, reply_message|
-        context_call(:after_message_sent, reply_code, reply_message)
-
+      unless (continues)
         context.transition!(state: :reset)
       end
     end
@@ -248,7 +249,7 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
     interpret(220) do |context|
       if (context.requires_authentication?)
         context.transition!(state: :auth)
-      elsif (context.delivery)
+      elsif (context.message)
         context.transition!(state: :mail_from)
       else
         context.transition!(state: :established)
@@ -266,12 +267,12 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
   
   state(:sending) do
     enter do |context|
-      data = context.delivery.data
+      data = context.message.data
 
       context.debug_notification(:send, data.inspect)
 
       # FIX: send_data, encode_data
-      context.send_data(self.class.encode_data(data))
+      context.reply(Mua::SMTP::Client::Support.encode_data(data))
 
       # Ensure that a blank line is sent after the last bit of email content
       # to ensure that the dot is on its own line.
@@ -280,16 +281,19 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
     end
     
     default do |context, reply_code, reply_message, continues|
-      handle_reply_continuation(reply_code, reply_message, continues) do |reply_code, reply_message|
-        context_call(:after_message_sent, reply_code, reply_message)
-      end
+      # handle_reply_continuation(reply_code, reply_message, continues) do |reply_code, reply_message|
+      #   context_call(:after_message_sent, reply_code, reply_message)
+      # end
 
-      context.transition!(state: :sent)
+      unless (continues)
+        context.transition!(state: :sent)
+      end
     end
   end
   
   state(:sent) do
     enter do |context|
+      context.message = nil
       context.transition!(state: :ready)
     end
   end

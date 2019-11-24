@@ -5,26 +5,24 @@ Mua::SMTP::Client::Context = Mua::State::Context.define(
   :password,
   :remote,
   :read_task,
-  :max_size,
+  features: {
+    default: -> { { } }
+  },
   hostname: {
     default: 'localhost'
   },
   protocol: {
     default: :smtp
   },
-  auth_support: {
-    default: false,
-    boolean: true
-  },
   auth_required: {
     default: false,
     boolean: true
   },
-  tls: {
-    default: false,
+  tls_requested: {
+    default: true,
     boolean: true
   },
-  tls_supported: {
+  tls_required: {
     default: false,
     boolean: true
   },
@@ -32,18 +30,18 @@ Mua::SMTP::Client::Context = Mua::State::Context.define(
     default: false,
     boolean: true
   },
-  pipelining: {
-    default: false,
-    boolean: true
-  },
   timeout: {
     default: Mua::Constants::TIMEOUT_DEFAULT
   },
-  delivery_queue: {
+  message_queue: {
     default: -> { [ ] }
   },
-  delivery: {
+  message: {
     default: nil
+  },
+  close_requested: {
+    boolean: true,
+    default: false
   },
   includes: Mua::SMTP::Client::ContextExtensions
 )

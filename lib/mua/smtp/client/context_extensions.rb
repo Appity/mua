@@ -1,19 +1,43 @@
 module Mua::SMTP::Client::ContextExtensions
+  def read_line
+    task = self.read_task = self.reactor.async do
+      line = self.input.gets
+
+      line and yield(line.chomp)
+    end
+
+    task.wait
+
+    # FIX: Handle Async read interruptions
+
+  ensure
+    self.read_task = nil
+  end
+
   def reply(*lines)
     self.input.puts(*lines, separator: Mua::Constants::CRLF)
   end
 
   def deliver!(message)
-    self.delivery_queue << message
+    self.message_queue << message
 
-    self.transition!(state: :ready, from: :ready)
+    self.force_transition!(state: :ready, from: :ready)
+  end
+
+  def message_pop
+    self.message = self.message_queue.shift
+  end
+
+  def message_queued?
+    self.message_queue.any?
   end
 
   def quit
-    self.transition!(state: :quit, from: :ready)
+    self.close_requested!
+    self.force_transition!(state: :quit, from: :ready)
   end
 
-  def transition!(state:, from: nil)
+  def force_transition!(state:, from: nil)
     if (!from or self.state == from)
       self.state = state
       self.read_task&.stop

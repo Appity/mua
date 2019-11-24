@@ -18,7 +18,7 @@ class Mua::SMTP::Message
     
     @mail_from = args[:mail_from] || args['mail_from']
     @rcpt_to = args[:rcpt_to] || args['rcpt_to']
-    @data = args[:data] || args['data']
+    @data = (args[:data] || args['data'])&.to_s&.gsub(/\r?\n/, "\r\n")
     @test = !!(args[:test] || args['test'])
   end
 

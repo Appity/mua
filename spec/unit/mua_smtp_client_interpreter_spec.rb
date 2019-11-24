@@ -4,7 +4,7 @@ require 'async/rspec'
 require_relative '../support/smtp_delegate'
 require_relative '../support/mock_stream'
 
-RSpec.describe Mua::SMTP::Client::Interpreter, type: [ :interpreter, :reactor ], timeout: 5 do
+RSpec.describe Mua::SMTP::Client::Interpreter, type: [ :interpreter, :reactor ], timeout: 1 do
   Context = Mua::SMTP::Client::Context
   Interpreter = Mua::SMTP::Client::Interpreter
 
@@ -28,7 +28,7 @@ RSpec.describe Mua::SMTP::Client::Interpreter, type: [ :interpreter, :reactor ],
       io.puts('420 Go away')
       expect(io.gets).to eq('QUIT')
 
-      io.close
+      io.close_write
     end
   end
 

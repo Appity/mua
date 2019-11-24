@@ -46,11 +46,7 @@ module SimulateExchange
           rspec.expect(self.gets).to rspec.eq(data)
         elsif (data = cmd['deliver'])
           [ data ].flatten.each do |message|
-            @context.deliver(
-              mail_from: message['mail_from'],
-              rcpt_to: message['rcpt_to'],
-              data: message['data']
-            )
+            @context.deliver!(Mua::SMTP::Message.new(message))
           end
         elsif (data = cmd['quit'])
           @context.quit

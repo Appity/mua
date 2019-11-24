@@ -201,7 +201,7 @@ RSpec.describe Mua::State::Machine do
       state_b: states[:b]
     )
 
-    expect(events).to match_array([
+    expect(events).to eq([
       [ :context, :machine, :enter ],
       [ :context, :initialize, :enter ],
       [ :context, :initialize, :leave ],

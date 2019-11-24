@@ -26,7 +26,7 @@ RSpec.describe Mua::State do
     child = Mua::State.new(parent: parent)
 
     expect(child.parent).to be(parent)
-    expect(child.default).to be(parent)
+    expect(child.default).to be(parent.interpreter)
   end
 
   it 'can produce an interpreter block with branches and default' do
@@ -145,8 +145,9 @@ RSpec.describe Mua::State do
       expect(context.branch).to eq(:primary)
       expect(context).to_not be_terminated
 
-      expect(events).to match_array([
+      expect(events).to eq([
         [ :context, :state, :enter ],
+        [ :context, :state, :branch, 'PRIMARY' ],
         [ :context, :state, :leave ],
         [ :context, :state, :terminate ]
       ])
@@ -162,6 +163,7 @@ RSpec.describe Mua::State do
 
       expect(events).to match_array([
         [ :context, :state, :enter ],
+        [ :context, :state, :branch, 'SECONDARY' ],
         [ :context, :state, :leave ],
         [ :context, :state, :terminate ]
       ])
@@ -178,7 +180,7 @@ RSpec.describe Mua::State do
         state.run!(context)
       end
 
-      expect(events).to match_array([
+      expect(events).to eq([
         [ :context, :state, :enter ],
         [ :context, :state, :leave ],
         [ :context, :state, :terminate ]
@@ -219,9 +221,11 @@ RSpec.describe Mua::State do
 
       expect(context.visited).to eq([ :parent, :substate, :branch ])
 
-      expect(events).to match_array([
+      expect(events).to eq([
         [ :context, :parent, :enter ],
+        [ :context, :parent, :branch, :substate ],
         [ :context, :substate, :enter ],
+        [ :context, :substate, :branch, :branch ],
         [ :context, :substate, :leave ],
         [ :context, :substate, :terminate ],
         [ :context, :parent, :leave ],

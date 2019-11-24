@@ -6,8 +6,8 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
   name: 'Mua::SMTP::Client::Interpreter',
   context: Mua::SMTP::Client::Context
 ) do
-  parser(line: true, chomp: true) do |context, data|
-    Mua::SMTP::Client::Support.unpack_reply(data.chomp)
+  parser do |context|
+    Mua::SMTP::Client::Support.unpack_reply(context.read_line)
   end
 
   state(:initialize) do
@@ -108,7 +108,7 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
     interpret(220) do |context|
       # FIX: Engage TLS
       # context.start_tls
-      @tls = true
+      # @tls = true
       
       case (context.protocol)
       when :esmtp
@@ -169,11 +169,19 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
       context.transition!(state: :mail_from)
     end
   end
+
+  state(:deliver) do
+    enter do |context|
+      if (context.delivery = context.delivery_queue.shift)
+        context.transition!(:mail_from)
+      end
+    end
+  end
   
   state(:mail_from) do
     enter do |context|
-      if (context.active_message)
-        context.reply("MAIL FROM:<#{context.active_message[:from]}>")
+      if (context.delivery)
+        context.reply("MAIL FROM:<#{context.delivery.mail_from}>")
       else
         context.message_callback(false, "Delegate has no active message")
         context.transition!(state: :reset)
@@ -191,34 +199,10 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
     end
   end
   
-  state(:re_helo) do
-    enter do |context|
-      context.reply("HELO #{context.hostname}")
-    end
-    
-    interpret(220) do |context|
-      if (context.requires_authentication?)
-        context.transition!(state: :auth)
-      elsif (context.active_message)
-        context.transition!(state: :mail_from)
-      else
-        context.transition!(state: :established)
-      end
-    end
-    
-    interpret(250) do |context|
-      if (context.requires_authentication?)
-        context.transition!(state: :auth)
-      else
-        context.transition!(state: :established)
-      end
-    end
-  end
-  
   state(:rcpt_to) do
     enter do |context|
-      if (context.active_message)
-        context.reply("RCPT TO:<#{context.active_message[:to]}>")
+      if (context.delivery)
+        context.reply("RCPT TO:<#{context.delivery.rcpt_to}>")
       else
         context.message_callback(false, "Delegate has no active message")
         context.transition!(state: :reset)
@@ -227,7 +211,7 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
     
     interpret(250) do |context, reply_message, continues|
       handle_reply_continuation(250, reply_message, continues) do |reply_code, reply_message|
-        if (context.active_message[:test])
+        if (context.delivery[:test])
           context_call(:after_message_sent, reply_code, reply_message)
 
           context.transition!(state: :reset)
@@ -248,7 +232,7 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
   
   state(:data) do
     enter do |context|
-      context.reply("DATA")
+      context.reply('DATA')
     end
     
     interpret(354) do |context|
@@ -256,12 +240,37 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
     end
   end
   
+  state(:re_helo) do
+    enter do |context|
+      context.reply("HELO #{context.hostname}")
+    end
+    
+    interpret(220) do |context|
+      if (context.requires_authentication?)
+        context.transition!(state: :auth)
+      elsif (context.delivery)
+        context.transition!(state: :mail_from)
+      else
+        context.transition!(state: :established)
+      end
+    end
+    
+    interpret(250) do |context|
+      if (context.requires_authentication?)
+        context.transition!(state: :auth)
+      else
+        context.transition!(state: :established)
+      end
+    end
+  end
+  
   state(:sending) do
     enter do |context|
-      data = context.active_message[:data]
+      data = context.delivery.data
 
       context.debug_notification(:send, data.inspect)
 
+      # FIX: send_data, encode_data
       context.send_data(self.class.encode_data(data))
 
       # Ensure that a blank line is sent after the last bit of email content
@@ -287,7 +296,7 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
   
   state(:quit) do
     enter do |context|
-      context.reply("QUIT")
+      context.reply('QUIT')
     end
     
     interpret(221) do |context|
@@ -308,7 +317,7 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
   
   state(:reset) do
     enter do |context|
-      context.reply("RSET")
+      context.reply('RSET')
     end
     
     interpret(250) do |context|
@@ -318,7 +327,7 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
   
   state(:noop) do
     enter do |context|
-      context.reply("NOOP")
+      context.reply('NOOP')
     end
     
     interpret(250) do |context|

@@ -16,7 +16,8 @@ module SimulateExchange
 
       @interpreter_task = reactor.async do |task|
         @context.reactor = task
-        @interpreter.run!
+
+        InterpreterDebugLog.interpreter_run!(@interpreter)
       end
 
       @test_task = reactor.async do |task|

@@ -52,9 +52,11 @@ class Mua::State
   end
 
   def prepare
+    return if (@prepared)
+
     self.before_prepare
 
-    @default ||= @parent
+    @default ||= @parent&.interpreter
 
     @interpret.freeze
 
@@ -69,6 +71,10 @@ class Mua::State
     )
 
     @prepared = true
+
+    @interpret.map do |_m, b|
+      b.prepare if (b.respond_to?(:prepare))
+    end
 
     self.after_prepare
 
@@ -133,19 +139,23 @@ class Mua::State
     loop do
       branch, *args = @parser ? @parser.call(context) : context.read
 
+      if (branch)
+        events << [ context, self, :branch, branch ]
+      end
+
       run = true
 
       case (branch)
-      when nil
-        context.terminated!
-
-        break
       when Mua::State::Transition
         context.state = branch.state
 
         break unless (branch.parent === false)
 
         branch = branch.state
+      when nil
+        context.terminated!
+
+        break
       end
 
       if (run)

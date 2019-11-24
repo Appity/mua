@@ -11,42 +11,51 @@ module Mua::State::Compiler
       b.eval([
         '-> (context, branch, *args) do',
         'case (branch)',
-        *interpreters.map.with_index do |(match, block), i|
+        *interpreters.flat_map.with_index do |(match, block), i|
           b.local_variable_set(:"__match_#{i}", block)
 
           case (match)
           when Regexp
-            "when %s\n__match_%d.call(context, *$~, *args)" % [ match.inspect, i ]
+            [
+              'when %s' % match.inspect,
+              '__match_%d.call(context, *$~, *args)' % i
+            ]
           when Range
-            "when %s\n__match_%d.call(context, branch, *args)" % [ match.inspect, i ]
+            [
+              'when %s' % match.inspect,
+              '__match_%d.call(context, branch, *args)' % i
+            ]
           when String
-            "when %s\n__match_%d.call(context, *args)" % [ match.dump, i ]
+            [
+              'when %s' % match.dump,
+              '__match_%d.call(context, *args)' % i
+            ] 
           when Symbol, Integer, Float, true, false, nil
-            "when %s\n__match_%d.call(context, *args)" % [ match.inspect, i ]
+            [
+              'when %s' % match.inspect,
+              '__match_%d.call(context, *args)' % i
+            ]
           else
             raise "Unsupported branch type #{match.class}"
           end
         end,
         *(
-          case (default)
-          when Proc
+          if (default)
             [ 'else', 'default.call(context, branch, *args)' ]
-          when Mua::State
-            [ 'else', 'default.interpreter.call(context, branch, *args)' ]
-          when nil
-            [ ]
           else
-            raise "Unknown default class used: #{default.class}"
+            [ ]
           end
         ),
         'end',
         'rescue ArgumentError => e',
-        'raise ArgumentError, "Branch for input #{branch.inspect} has handler with #{e}"',
+        'raise ArgumentError, "branch for input #{branch.inspect} has handler with #{e}"',
         'end'
       ].join("\n"))
     elsif (default)
       -> (context, branch, *args) do
         default.call(context, branch, *args)
+      rescue ArgumentError => e
+        raise ArgumentError, "default branch for input #{branch.inspect} has handler with #{e}"
       end
     else
       -> (context, branch, *args) { }

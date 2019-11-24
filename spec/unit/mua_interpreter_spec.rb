@@ -1,6 +1,6 @@
 require_relative '../support/mock_stream'
 
-RSpec.describe Mua::Interpreter do
+RSpec.describe Mua::Interpreter, type: [ :interpreter, :reactor ] do
   context 'define' do
     it 'can create a class with a custom state machine and context' do
       interpreter_class = Mua::Interpreter.define(
@@ -60,15 +60,21 @@ RSpec.describe Mua::Interpreter do
       parser(line: true, separator: "\r\n")
 
       state(:initialize) do
-        interpret(/\AHELO\s+(.*)\z/) do |context, _, host|
-          context.received << [ :helo, host ]
-          context.input.puts('250 Hi')
-
+        enter do |context|
           context.transition!(state: :helo)
         end
       end
 
       state(:helo) do
+        interpret(/\AHELO\s+(.*)\z/) do |context, _, host|
+          context.received << [ :helo, host ]
+          context.input.puts('250 Hi')
+
+          context.transition!(state: :mail_from)
+        end
+      end
+
+      state(:mail_from) do
         interpret(/\AMAIL FROM:\<([^>]+)\>\z/) do |context, _, addr|
           context.received << [ :mail_from, addr ]
           context.input.puts('250 Continue')
@@ -98,7 +104,7 @@ RSpec.describe Mua::Interpreter do
       io.puts('HELO example.com')
       io.puts('MAIL FROM:<test@example.com>')
       io.puts('QUIT')
-      io.io.shutdown
+      io.close_write
 
       interpreter = RegexpInterpreter.new(context)
 
@@ -107,7 +113,7 @@ RSpec.describe Mua::Interpreter do
       
       expect(interpreter.context).to be(context)
 
-      interpreter.run!
+      interpreter_run!(interpreter)
 
       expect(context.received).to eq([
         [ :helo, 'example.com' ],

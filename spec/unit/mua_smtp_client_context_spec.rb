@@ -10,6 +10,7 @@ RSpec.describe Mua::SMTP::Client::Context, type: :reactor do
     expect(context.password).to be(nil)
     expect(context.remote).to be(nil)
     expect(context.read_task).to be(nil)
+    expect(context.max_size).to be(nil)
     expect(context.hostname).to eq('localhost')
     expect(context.protocol).to be(:smtp)
     expect(context).to_not be_auth_support
@@ -17,6 +18,7 @@ RSpec.describe Mua::SMTP::Client::Context, type: :reactor do
     expect(context).to_not be_tls
     expect(context).to_not be_tls_supported
     expect(context).to_not be_proxy
+    expect(context).to_not be_pipelining
     expect(context.timeout).to be(Mua::Constants::TIMEOUT_DEFAULT)
     expect(context.delivery_queue).to eq([ ])
     expect(context.delivery).to be(nil)
@@ -34,6 +36,7 @@ RSpec.describe Mua::SMTP::Client::Context, type: :reactor do
     context.password = 'pass'
     context.remote = 'mail.example.net'
     context.read_task = reactor
+    context.max_size = 1024
     context.hostname = 'mta.example.org'
     context.protocol = :esmtp
     context.auth_support!
@@ -41,6 +44,7 @@ RSpec.describe Mua::SMTP::Client::Context, type: :reactor do
     context.tls!
     context.tls_supported!
     context.proxy!
+    context.pipelining!
     context.timeout = 999
     context.delivery_queue << message
     context.delivery = message
@@ -49,6 +53,7 @@ RSpec.describe Mua::SMTP::Client::Context, type: :reactor do
     expect(context.password).to eq('pass')
     expect(context.remote).to eq('mail.example.net')
     expect(context.read_task).to be(reactor)
+    expect(context.max_size).to be(1024)
     expect(context.hostname).to eq('mta.example.org')
     expect(context.protocol).to be(:esmtp)
     expect(context).to be_auth_support
@@ -56,6 +61,7 @@ RSpec.describe Mua::SMTP::Client::Context, type: :reactor do
     expect(context).to be_tls
     expect(context).to be_tls_supported
     expect(context).to be_proxy
+    expect(context).to be_pipelining
     expect(context.timeout).to eq(999)
     expect(context.delivery_queue).to eq([ message ])
     expect(context.delivery).to be(message)

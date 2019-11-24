@@ -5,6 +5,7 @@ Mua::SMTP::Client::Context = Mua::State::Context.define(
   :password,
   :remote,
   :read_task,
+  :max_size,
   hostname: {
     default: 'localhost'
   },
@@ -28,6 +29,10 @@ Mua::SMTP::Client::Context = Mua::State::Context.define(
     boolean: true
   },
   proxy: {
+    default: false,
+    boolean: true
+  },
+  pipelining: {
     default: false,
     boolean: true
   },

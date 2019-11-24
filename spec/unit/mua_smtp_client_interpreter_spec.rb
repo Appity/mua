@@ -5,7 +5,7 @@ require_relative '../support/smtp_delegate'
 require_relative '../support/mock_stream'
 
 RSpec.describe Mua::SMTP::Client::Interpreter, type: [ :interpreter, :reactor ], timeout: 1 do
-  Context = Mua::SMTP::Client::Context
+  Context = Mua::Client::Context
   Interpreter = Mua::SMTP::Client::Interpreter
 
   it 'defines a context type' do

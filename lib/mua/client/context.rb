@@ -1,9 +1,16 @@
 require_relative 'context_extensions'
+require_relative '../state'
 
-Mua::SMTP::Client::Context = Mua::State::Context.define(
-  :username,
-  :password,
-  :remote,
+Mua::Client::Context = Mua::State::Context.define(
+  :smtp_host,
+  :smtp_port,
+  :smtp_username,
+  :smtp_password,
+  :proxy_username,
+  :proxy_password,
+  :proxy_host,
+  :proxy_port,
+  :remote_host,
   :read_task,
   features: {
     default: -> { { } }
@@ -14,19 +21,11 @@ Mua::SMTP::Client::Context = Mua::State::Context.define(
   protocol: {
     default: :smtp
   },
-  auth_required: {
-    default: false,
-    boolean: true
-  },
   tls_requested: {
     default: true,
     boolean: true
   },
   tls_required: {
-    default: false,
-    boolean: true
-  },
-  proxy: {
     default: false,
     boolean: true
   },
@@ -43,5 +42,5 @@ Mua::SMTP::Client::Context = Mua::State::Context.define(
     boolean: true,
     default: false
   },
-  includes: Mua::SMTP::Client::ContextExtensions
+  includes: Mua::Client::ContextExtensions
 )

@@ -6,7 +6,7 @@ end
 require_relative 'mua/version'
 
 require_relative 'mua/attr_boolean'
-require_relative 'mua/connection'
+require_relative 'mua/client'
 require_relative 'mua/constants'
 require_relative 'mua/email_address'
 require_relative 'mua/interpreter'

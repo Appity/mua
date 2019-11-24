@@ -1,14 +1,20 @@
-RSpec.describe Mua::SMTP::Client::Context, type: :reactor do
+RSpec.describe Mua::Client::Context, type: :reactor do
   it 'is a Mua::State::Context' do
-    expect(Mua::SMTP::Client::Context.ancestors).to include(Mua::State::Context)
+    expect(Mua::Client::Context.ancestors).to include(Mua::State::Context)
   end
 
   it 'has properties with defaults' do
-    context = Mua::SMTP::Client::Context.new
+    context = Mua::Client::Context.new
 
-    expect(context.username).to be(nil)
-    expect(context.password).to be(nil)
-    expect(context.remote).to be(nil)
+    expect(context.smtp_username).to be(nil)
+    expect(context.smtp_password).to be(nil)
+    expect(context.smtp_host).to be(nil)
+    expect(context.smtp_port).to be(nil)
+    expect(context.proxy_username).to be(nil)
+    expect(context.proxy_password).to be(nil)
+    expect(context.proxy_host).to be(nil)
+    expect(context.proxy_port).to be(nil)
+    expect(context.remote_host).to be(nil)
     expect(context.read_task).to be(nil)
     expect(context.features).to eq({ })
     expect(context.hostname).to eq('localhost')
@@ -23,32 +29,42 @@ RSpec.describe Mua::SMTP::Client::Context, type: :reactor do
   end
 
   it 'allows writing to properties' do
-    context = Mua::SMTP::Client::Context.new
+    context = Mua::Client::Context.new
     message = Mua::SMTP::Message.new(
       mail_from: 'mail-from@example.org',
       rcpt_to: 'rcpt-to@example.org',
       data: 'From: Demo'
     )
 
-    context.username = 'user'
-    context.password = 'pass'
-    context.remote = 'mail.example.net'
+    context.smtp_username = 'smtp/user'
+    context.smtp_password = 'smtp/pass'
+    context.smtp_host = 'smtp.example.org'
+    context.smtp_port = 587
+    context.proxy_username = 'socks5/user'
+    context.proxy_password = 'socks5/pass'
+    context.proxy_host = 'socks5.example.net'
+    context.proxy_port = 1080
+    context.remote_host = 'mail.example.net'
     context.read_task = reactor
     context.features[:max_size] = 1024
     context.hostname = 'mta.example.org'
     context.protocol = :esmtp
-    context.auth_required!
     context.tls_requested = false
     context.tls_required!
-    context.proxy!
     context.timeout = 999
     context.message_queue << message
     context.message = message
     context.close_requested!
 
-    expect(context.username).to eq('user')
-    expect(context.password).to eq('pass')
-    expect(context.remote).to eq('mail.example.net')
+    expect(context.smtp_username).to eq('smtp/user')
+    expect(context.smtp_password).to eq('smtp/pass')
+    expect(context.smtp_host).to eq('smtp.example.org')
+    expect(context.smtp_port).to eq(587)
+    expect(context.proxy_username).to eq('socks5/user')
+    expect(context.proxy_password).to eq('socks5/pass')
+    expect(context.proxy_host).to eq('socks5.example.net')
+    expect(context.proxy_port).to eq(1080)
+    expect(context.remote_host).to eq('mail.example.net')
     expect(context.read_task).to be(reactor)
     expect(context.features).to eq(max_size: 1024)
     expect(context.hostname).to eq('mta.example.org')
@@ -65,7 +81,7 @@ RSpec.describe Mua::SMTP::Client::Context, type: :reactor do
 
   context 'has extensions' do
     it 'to queue up messages' do
-      context = Mua::SMTP::Client::Context.new
+      context = Mua::Client::Context.new
       message = Mua::SMTP::Message.new(
         mail_from: 'mail-from@example.org',
         rcpt_to: 'rcpt-to@example.org',

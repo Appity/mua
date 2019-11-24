@@ -1,10 +1,10 @@
 require_relative '../../constants'
-require_relative 'context'
+require_relative '../../client/context'
 require_relative 'support'
 
 Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
   name: 'Mua::SMTP::Client::Interpreter',
-  context: Mua::SMTP::Client::Context
+  context: Mua::Client::Context
 ) do
   parser do |context|
     context.read_line do |line|
@@ -21,7 +21,7 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
   state(:greeting) do
     interpret(220) do |context, message, continues|
       message_parts = message.split(/\s+/)
-      context.remote = message_parts.first
+      context.remote_host = message_parts.first
       
       if (message.match(/\bESMTP\b/))
         context.protocol = :esmtp

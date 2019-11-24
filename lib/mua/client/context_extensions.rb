@@ -1,4 +1,12 @@
-module Mua::SMTP::Client::ContextExtensions
+module Mua::Client::ContextExtensions
+  def auth_required?
+    !!(self.smtp_username or self.smtp_password)
+  end
+
+  def proxy?
+    !!self.proxy_host
+  end
+
   def read_line
     task = self.read_task = self.reactor.async do
       line = self.input.gets

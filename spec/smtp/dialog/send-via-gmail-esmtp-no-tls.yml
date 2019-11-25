@@ -11,7 +11,8 @@ dialog:
 - recv: 250-CHUNKING
 - recv: 250 SMTPUTF8
 - deliver:
-  - mail_from: sender@example.test
+  - id: 7c6d70b468e3@mail.example.org
+    mail_from: sender@example.test
     rcpt_to: recipient@example.org
     data: |
       From: Sender <sender@example.test>
@@ -34,3 +35,8 @@ dialog:
 - quit: true
 - send: QUIT
 - recv: 221 2.0.0 closing connection w16si816216vsf.15 - gsmtp
+- verify_delivery:
+  - id: 7c6d70b468e3@mail.example.org
+    state: :delivered
+    reply_code: 250
+    reply_message: 2.0.0 OK  1574372161 v24si158824vsi.137 - gsmtp

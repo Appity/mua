@@ -14,6 +14,8 @@ RSpec.describe Mua::Client::Context, type: :reactor do
     expect(context.proxy_password).to be(nil)
     expect(context.proxy_host).to be(nil)
     expect(context.proxy_port).to be(nil)
+    expect(context.reply_code).to be(nil)
+    expect(context.reply_message).to be(nil)
     expect(context.remote_host).to be(nil)
     expect(context.read_task).to be(nil)
     expect(context.features).to eq({ })
@@ -44,6 +46,8 @@ RSpec.describe Mua::Client::Context, type: :reactor do
     context.proxy_password = 'socks5/pass'
     context.proxy_host = 'socks5.example.net'
     context.proxy_port = 1080
+    context.reply_code = 250
+    context.reply_message = 'Got it'
     context.remote_host = 'mail.example.net'
     context.read_task = reactor
     context.features[:max_size] = 1024
@@ -64,6 +68,8 @@ RSpec.describe Mua::Client::Context, type: :reactor do
     expect(context.proxy_password).to eq('socks5/pass')
     expect(context.proxy_host).to eq('socks5.example.net')
     expect(context.proxy_port).to eq(1080)
+    expect(context.reply_code).to eq(250)
+    expect(context.reply_message).to eq('Got it')
     expect(context.remote_host).to eq('mail.example.net')
     expect(context.read_task).to be(reactor)
     expect(context.features).to eq(max_size: 1024)

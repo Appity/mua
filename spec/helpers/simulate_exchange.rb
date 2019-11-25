@@ -24,6 +24,8 @@ module SimulateExchange
         block.call(@context, self, task)
       end
 
+      @messages = { }
+
       [ @interpreter_task, @test_task ].map(&:wait)
 
     ensure
@@ -46,10 +48,22 @@ module SimulateExchange
           rspec.expect(self.gets).to rspec.eq(data)
         elsif (data = cmd['deliver'])
           [ data ].flatten.each do |message|
-            @context.deliver!(Mua::SMTP::Message.new(message))
+            message = Mua::SMTP::Message.new(message)
+            message.id ||= SecureRandom.uuid + '@example.net'
+            @messages[message.id] = message
+            @context.deliver!(message)
           end
         elsif (data = cmd['quit'])
           @context.quit
+        elsif (data = cmd['verify_delivery'])
+          [ data ].flatten.each do |delivery|
+            message = @messages[delivery['id']]
+            rspec.expect(message).to rspec.be_kind_of(Mua::SMTP::Message)
+
+            delivery.each do |field, value|
+              rspec.expect(message.send(field)).to rspec.eq(value)
+            end
+          end
         end
       end
 

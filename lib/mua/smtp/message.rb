@@ -52,6 +52,10 @@ class Mua::SMTP::Message
     define_method(:"#{s}?") do
       @state == s
     end
+
+    define_method(:"#{s}!") do
+      @state = s
+    end
   end
 
   def reply_code=(v)

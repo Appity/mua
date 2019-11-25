@@ -12,6 +12,8 @@ Mua::Client::Context = Mua::State::Context.define(
   :proxy_port,
   :remote_host,
   :read_task,
+  :reply_code,
+  :reply_message,
   features: {
     default: -> { { } }
   },

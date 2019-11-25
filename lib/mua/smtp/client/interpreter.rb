@@ -8,7 +8,11 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
 ) do
   parser do |context|
     context.read_line do |line|
-      Mua::SMTP::Client::Support.unpack_reply(line)
+      # FIX: Add continuation support via redo request?
+      Mua::SMTP::Client::Support.unpack_reply(line).tap do |reply_code, reply_message, continued|
+        context.reply_code = reply_code
+        context.reply_message = reply_message
+      end
     end
   end
 
@@ -156,7 +160,7 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
       if (context.close_requested?)
         context.transition!(state: :quit)
       elsif (context.message_queued?)
-        context.transition!(state: :send)
+        context.transition!(state: :deliver)
       end
     end
     
@@ -166,18 +170,10 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
     end
   end
   
-  state(:send) do
+  state(:deliver) do
     enter do |context|
       if (context.message_pop)
         context.transition!(state: :mail_from)
-      end
-    end
-  end
-
-  state(:deliver) do
-    enter do |context|
-      if (context.message = context.message_queue.shift)
-        context.transition!(:mail_from)
       end
     end
   end
@@ -241,6 +237,52 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
     end
   end
   
+  state(:sending) do
+    enter do |context|
+      data = context.message.data
+
+      context.debug_notification(:send, data.inspect)
+
+      # FIX: send_data, encode_data
+      context.reply(Mua::SMTP::Client::Support.encode_data(data))
+
+      # Ensure that a blank line is sent after the last bit of email content
+      # to ensure that the dot is on its own line.
+      context.reply
+      context.reply(".")
+    end
+    
+    default do |context, reply_code, reply_message, continues|
+      # handle_reply_continuation(reply_code, reply_message, continues) do |reply_code, reply_message|
+      #   context_call(:after_message_sent, reply_code, reply_message)
+      # end
+
+      context.message.reply_code = reply_code
+      context.message.reply_message = reply_message
+
+      # FIX: This needs to be a lot smarter
+      context.message.state =
+        case (reply_code)
+        when 250
+          :delivered
+        else
+          :failed
+        end
+
+      # FIX: Continuation issues
+      unless (continues)
+        context.transition!(state: :sent)
+      end
+    end
+  end
+  
+  state(:sent) do
+    enter do |context|
+      context.message = nil
+      context.transition!(state: :ready)
+    end
+  end
+  
   state(:re_helo) do
     enter do |context|
       context.reply("HELO #{context.hostname}")
@@ -262,39 +304,6 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
       else
         context.transition!(state: :established)
       end
-    end
-  end
-  
-  state(:sending) do
-    enter do |context|
-      data = context.message.data
-
-      context.debug_notification(:send, data.inspect)
-
-      # FIX: send_data, encode_data
-      context.reply(Mua::SMTP::Client::Support.encode_data(data))
-
-      # Ensure that a blank line is sent after the last bit of email content
-      # to ensure that the dot is on its own line.
-      context.reply
-      context.reply(".")
-    end
-    
-    default do |context, reply_code, reply_message, continues|
-      # handle_reply_continuation(reply_code, reply_message, continues) do |reply_code, reply_message|
-      #   context_call(:after_message_sent, reply_code, reply_message)
-      # end
-
-      unless (continues)
-        context.transition!(state: :sent)
-      end
-    end
-  end
-  
-  state(:sent) do
-    enter do |context|
-      context.message = nil
-      context.transition!(state: :ready)
     end
   end
   
@@ -345,6 +354,12 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
     
     # context.reply('QUIT')
     # context.terminated!
+
+    if (message = context.message)
+      message.reply_code = reply_code
+      message.reply_message = reply_message
+      message.failed!
+    end
 
     context.transition!(state: :quit)
   end

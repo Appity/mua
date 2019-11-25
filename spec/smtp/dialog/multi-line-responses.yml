@@ -1,0 +1,52 @@
+hostname: example.test
+dialog:
+- recv: 220-verbose-mx.example.com SMTP Welcome to Example Corp.
+- recv: 220-This server has a huge banner for no particular reason.
+- recv: 220 If you have any complaints to postmaster@example.com
+- send: HELO example.test
+- recv: 250-verbose-mx.example.com at your service!
+- recv: 250-There are many things you can do here.
+- recv: 250-Actually.
+- recv: 250-No.
+- recv: 250-Scratch that.
+- recv: 250 You can just send email.
+- deliver:
+  - id: 7c6d70b468e3@mail.example.com
+    mail_from: sender@example.org
+    rcpt_to: recipient@example.com
+    data: |
+      From: Sender <sender@example.org>
+      To: Recipient <recipient@example.com>
+
+      Example email!
+- send: MAIL FROM:<sender@example.org>
+- recv: 250-Wow, you really like sending mail, huh?
+- recv: 250-I'm a let you get to that in a minute.
+- recv: 250-Do you want to hear a story first?
+- recv: 250 You don't have to. I'm just lonely.
+- send: RCPT TO:<recipient@example.com>
+- recv: 250-Oh, I think I can handle that!
+- recv: 250-Will have to check to be sure.
+- recv: 250 That may take a moment. Hope you have the time.
+- send: DATA
+- recv: 354-This will be good. I can hardly wait!
+- recv: 354-Though you know, the more I think about it, maybe this isn't a
+- recv: 354 great idea and maybe we should call the whole thing off.
+- send: 'From: Sender <sender@example.org>'
+- send: 'To: Recipient <recipient@example.com>'
+- send: ''
+- send: 'Example email!'
+- send: ''
+- send: '.'
+- recv: 250-Yeah, well, mark me down as underwhelmed. I really had high
+- recv: 250 expectations for that email!
+- quit: true
+- send: QUIT
+- recv: 221-Never let RFC5321 get you down. There's always hope that
+- recv: 221-someone will step up and replace it with something else.
+- recv: 221 but for now we're stuck with it, I guess?
+- verify_delivery:
+  - id: 7c6d70b468e3@mail.example.com
+    state: :delivered
+    reply_code: 250
+    reply_message: Yeah, well, mark me down as underwhelmed. I really had high expectations for that email!

@@ -8,10 +8,18 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
 ) do
   parser do |context|
     context.read_line do |line|
-      # FIX: Add continuation support via redo request?
-      Mua::SMTP::Client::Support.unpack_reply(line).tap do |reply_code, reply_message, continued|
+      reply_code, reply_message, continuation = Mua::SMTP::Client::Support.unpack_reply(line)
+
+      if (continuation)
+        context.reply_buffer << reply_message
+        context.parser_redo!
+      else
+        buffer, context.reply_buffer = context.reply_buffer, [ ]
+        buffer << reply_message
         context.reply_code = reply_code
-        context.reply_message = reply_message
+        context.reply_message = buffer
+
+        [ reply_code, buffer ]
       end
     end
   end
@@ -23,17 +31,15 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
   end
 
   state(:greeting) do
-    interpret(220) do |context, message, continues|
-      message_parts = message.split(/\s+/)
+    interpret(220) do |context, messages|
+      message_parts = messages[0].split(/\s+/)
       context.remote_host = message_parts.first
       
-      if (message.match(/\bESMTP\b/))
+      if (messages[0].match(/\bESMTP\b/))
         context.protocol = :esmtp
       end
 
-      unless (continues)
-        context.transition!(state: context.protocol == :esmtp ? :ehlo : :helo)
-      end
+      context.transition!(state: context.protocol == :esmtp ? :ehlo : :helo)
     end
     
     interpret(421) do |context, message|
@@ -65,32 +71,32 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
       context.reply("EHLO #{context.hostname}")
     end
 
-    interpret(250) do |context, message, continues|
-      feature, *value = message.split(/\s+/)
+    interpret(250) do |context, messages|
+      messages.each do |message|
+        feature, *value = message.split(/\s+/)
 
-      value.map do |v|
-        case (v)
-        when /\A\d+\z/
-          v.to_i
-        else
-          v
+        value.map do |v|
+          case (v)
+          when /\A\d+\z/
+            v.to_i
+          else
+            v
+          end
         end
+
+        if (value.length == 1)
+          value = value[0]
+        end
+
+        context.features[feature.downcase.to_sym] = value
       end
 
-      if (value.length == 1)
-        value = value[0]
-      end
-
-      context.features[feature.downcase.to_sym] = value
-
-      unless (continues)
-        if (context.features[:starttls] and context.tls_requested? and !@tls)
-          context.transition!(state: :starttls)
-        elsif (context.auth_required?)
-          context.transition!(state: :auth)
-        else
-          context.transition!(state: :established)
-        end
+      if (context.features[:starttls] and context.tls_requested? and !@tls)
+        context.transition!(state: :starttls)
+      elsif (context.auth_required?)
+        context.transition!(state: :auth)
+      else
+        context.transition!(state: :established)
       end
     end
     
@@ -135,8 +141,9 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
       context.transition!(state: :established)
     end
     
-    interpret(535) do |context, reply_message, continues|
-      handle_reply_continuation(535, reply_message, continues) do |reply_code, reply_message|
+    interpret(535) do |context, reply_messages|
+      # FIX: Not compatible with new model
+      handle_reply_continuation(535, reply_message) do |reply_code, reply_message|
         @error = reply_message
 
         context.debug_notification(:error, "[#{@state}] #{reply_code} #{reply_message}")
@@ -192,8 +199,8 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
       context.transition!(state: :rcpt_to)
     end
     
-    interpret(503) do |context, message, continues|
-      if (message.match(/5\.5\.1/))
+    interpret(503) do |context, reply_messages|
+      if (reply_messages[0].match(/5\.5\.1/))
         context.transition!(state: :re_helo)
       end
     end
@@ -209,21 +216,21 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
       end
     end
     
-    interpret(250) do |context, reply_message, continues|
-      unless (continues)
-        # FIX: Test for multi-line responses with some context helper
-        if (context.message.test?)
-            context.transition!(state: :reset)
-        else
-          context.transition!(state: :data)
-        end
+    interpret(250) do |context, reply_messages|
+      if (context.message.test?)
+        message.status = :test_passed
+        context.transition!(state: :reset)
+      else
+        context.transition!(state: :data)
       end
     end
     
-    interpret(500..599) do |context, reply_code, reply_message, continues|
-      unless (continues)
-        context.transition!(state: :reset)
+    interpret(500..599) do |context, reply_code, _reply_messages|
+      if (context.message.test?)
+        message.status = :test_failed
       end
+
+      context.transition!(state: :reset)
     end
   end
   
@@ -252,13 +259,13 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
       context.reply(".")
     end
     
-    default do |context, reply_code, reply_message, continues|
-      # handle_reply_continuation(reply_code, reply_message, continues) do |reply_code, reply_message|
+    default do |context, reply_code, reply_messages|
+      # handle_reply_continuation(reply_code, reply_message) do |reply_code, reply_message|
       #   context_call(:after_message_sent, reply_code, reply_message)
       # end
 
       context.message.reply_code = reply_code
-      context.message.reply_message = reply_message
+      context.message.reply_message = reply_messages.join(' ')
 
       # FIX: This needs to be a lot smarter
       context.message.state =
@@ -269,10 +276,7 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
           :failed
         end
 
-      # FIX: Continuation issues
-      unless (continues)
-        context.transition!(state: :sent)
-      end
+      context.transition!(state: :sent)
     end
   end
   
@@ -348,7 +352,7 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
     end
   end
 
-  default do |context, reply_code, reply_message, continues|
+  default do |context, reply_code, reply_messages|
     # FIX: Determine if it should RSET or QUIT
     # context.transition!(state: @state == :initialized ? :terminated : :reset)
     
@@ -357,7 +361,7 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
 
     if (message = context.message)
       message.reply_code = reply_code
-      message.reply_message = reply_message
+      message.reply_message = reply_messages.join(' ')
       message.failed!
     end
 

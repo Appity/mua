@@ -4,6 +4,8 @@ class Mua::SMTP::Message
   STATES = %i[
     queued
     delivered
+    test_passed
+    test_failed
     rejected
     bounced
     failed

@@ -54,6 +54,10 @@ class Mua::State::Context
     end
   end
 
+  def parser_redo!
+    Mua::Parser::Redo
+  end
+
   # Emits a state transition
   def transition!(state:, parent: nil)
     Mua::State::Transition.new(state: state, parent: parent)

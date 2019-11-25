@@ -1,4 +1,12 @@
 module Mua::Parser
+  # == Classes ==============================================================
+  
+  module Redo
+    # Used to indicate a parsing pass should be repeated.
+  end
+
+  # == Module Methods =======================================================
+
   def self.read_stream(line: false, chomp: true, exactly: nil, partial: nil, match: nil, separator: $/, &block)
     if (line)
       if (block)

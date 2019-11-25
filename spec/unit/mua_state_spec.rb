@@ -287,14 +287,14 @@ RSpec.describe Mua::State do
     end
 
     context = Mua::State::Context.define(
-      parts: -> () { [ ] }
+      parts: -> { [ ] }
     ).new
 
     context.input = 'You cannot cut back on RFC 5322!'
 
     events = state.run!(context)
 
-    expect(context.parts).to match_array([
+    expect(context.parts).to eq([
       { word: 'you' },
       { word: 'cannot' },
       { word: 'cut' },
@@ -303,6 +303,46 @@ RSpec.describe Mua::State do
       { word: 'rfc' },
       { number: 5322 },
       { punctuation: '!' }
+    ])
+  end
+
+  it 'can parse with optional redo for continuations' do
+    state = Mua::State.define do
+      preprocess do |context|
+        context.input = context.input.downcase.split(/\s+/)
+      end
+
+      parser do |context|
+        case (input = context.input.shift.dtap)
+        when 'a', 'an', 'the'
+          context.buffer << input
+          context.parser_redo!
+        else
+          buffer, context.buffer = context.buffer, [ ]
+          [ *buffer, input ].join(' ')
+        end
+      end
+
+      default do |context, word|
+        context.parts << word
+      end
+    end
+
+    context = Mua::State::Context.define(
+      buffer: -> { [ ] },
+      parts: -> { [ ] }
+    ).new
+
+    context.input = 'This is a story about an interpreter'
+
+    events = state.run!(context)
+
+    expect(context.parts).to eq([
+      'this',
+      'is',
+      'a story',
+      'about',
+      'an interpreter'
     ])
   end
 

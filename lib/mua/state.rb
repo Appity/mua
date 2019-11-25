@@ -137,7 +137,18 @@ class Mua::State
   def run_interior(events, context)
     # REFACTOR: This needs to be something the Compiler can generate
     loop do
-      branch, *args = @parser ? @parser.call(context) : context.read
+      begin
+        branch, *args =
+          if (@parser)
+            @parser.call(context)
+          else
+            context.read
+          end
+        
+        redo if (branch == Mua::Parser::Redo)
+
+        [ branch, args ]
+      end
 
       if (branch)
         events << [ context, self, :branch, branch ]

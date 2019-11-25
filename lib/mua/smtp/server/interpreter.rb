@@ -1,239 +1,215 @@
-class Mua::SMTP::Server::Interpreter < Mua::Interpreter
-  # == State Definitions ====================================================
+require_relative 'context'
+require_relative '../../constants'
 
-  default do |error|
-    delegate.send_line("500 Invalid command")
-  end
-  
-  state :initialized do
-    enter do
-      self.send_banner
+Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
+  name: 'Mua::SMTP::Server::Interpreter',
+  context: Mua::SMTP::Server::Context
+) do
+  parser(line: true, separator: Mua::Constants::CRLF, chomp: true)
+
+  state(:initialize) do
+    enter do |context|
+      io = context.input.io
+
+      if (io.respond_to?(:peeraddr))
+        # FIX: Decode with Socket and assign
+        p io.peeraddr
+        context.remote_ip
+      else
+        context.remote_ip = 'socket'
+        context.remote_port = 0
+      end
+
+      if (io.respond_to?(:addr))
+        # FIX: Decode with Socket and assign
+        p io.addr
+      else
+        context.local_ip = 'socket'
+        context.local_port = 0
+      end
+
+      context.reply(context.banner)
       
-      enter_state(:reset)
+      context.transition!(state: :reset)
     end
   end
   
-  state :reset do
-    enter do
-      self.reset_transaction!
+  state(:reset) do
+    enter do |context|
+      context.reset_transaction!
       
-      enter_state(:ready)
+      context.transition!(state: :ready)
     end
   end
   
-  state :ready do
-    interpret(/^\s*EHLO\s+(\S+)\s*$/) do |remote_host|
-      delegate.validate_hostname(remote_host) do |valid|
-        if (valid)
-          delegate.log(:debug, "#{delegate.remote_ip}:#{delegate.remote_port} to #{delegate.local_ip}:#{delegate.local_port} Accepting connection from #{remote_host}")
-          @remote_host = remote_host
+  state(:ready) do
+    interpret(/\A\s*EHLO\s+(\S+)\s*\z/) do |context, _, remote_host|
+      if (context.valid_hostname?(remote_host))
+        context.log(:debug, "#{context.remote_ip}:#{context.remote_port} to #{context.local_ip}:#{context.local_port} Accepting connection from #{remote_host}")
+        context.remote_host = remote_host
 
-          delegate.send_line("250-#{delegate.server_name} Hello #{delegate.remote_host} [#{delegate.remote_ip}]")
-          delegate.send_line("250-AUTH PLAIN")
-          delegate.send_line("250-SIZE 35651584")
-          delegate.send_line("250-STARTTLS") if (delegate.tls?)
-          delegate.send_line("250 OK")
-        else
-          delegate.log(:debug, "#{delegate.remote_ip}:#{delegate.remote_port} to #{delegate.local_ip}:#{delegate.local_port} Rejecting connection from #{remote_host} because of invalid FQDN")
-          delegate.send_line("504 Need fully qualified hostname")
-        end
+        context.reply("250-#{context.hostname} Hello #{context.remote_host} [#{context.remote_ip}]")
+        context.reply("250-AUTH PLAIN")
+        context.reply("250-SIZE 35651584")
+        context.reply("250-STARTTLS") if (context.tls_configured?)
+        context.reply("250 OK")
+      else
+        context.log(:debug, "#{context.remote_ip}:#{context.remote_port} to #{context.local_ip}:#{context.local_port} Rejecting connection from #{remote_host} because of invalid FQDN")
+        context.reply("504 Need fully qualified hostname")
       end
     end
 
-    interpret(/^\s*HELO\s+(\S+)\s*$/) do |remote_host|
-      delegate.validate_hostname(remote_host) do |valid|
-        if (valid)
-          delegate.log(:debug, "#{delegate.remote_ip}:#{delegate.remote_port} to #{delegate.local_ip}:#{delegate.local_port} Accepting connection from #{remote_host}")
-          @remote_host = remote_host
+    interpret(/\A\s*HELO\s+(\S+)\s*\z/) do |context, _, remote_host|
+      if (context.valid_hostname?(remote_host))
+        context.log(:debug, "#{context.remote_ip}:#{context.remote_port} to #{context.local_ip}:#{context.local_port} Accepting connection from #{remote_host}")
+        context.remote_host = remote_host
 
-          delegate.send_line("250 #{delegate.server_name} Hello #{delegate.remote_host} [#{delegate.remote_ip}]")
-        else
-          delegate.log(:debug, "#{delegate.remote_ip}:#{delegate.remote_port} to #{delegate.local_ip}:#{delegate.local_port} Rejecting connection from #{remote_host} because of invalid FQDN")
-          delegate.send_line("504 Need fully qualified hostname")
-        end
+        context.reply("250 #{context.hostname} Hello #{context.remote_host} [#{context.remote_ip}]")
+      else
+        context.log(:debug, "#{context.remote_ip}:#{context.remote_port} to #{context.local_ip}:#{context.local_port} Rejecting connection from #{remote_host} because of invalid FQDN")
+        context.reply("504 Need fully qualified hostname")
       end
     end
     
-    interpret(/^\s*MAIL\s+FROM:\s*<([^>]+)>\s*/) do |address|
+    interpret(/\A\s*MAIL\s+FROM:\s*<([^>]+)>\s*/) do |context, _, address|
       if (Mua::EmailAddress.valid?(address))
-        accept, message = will_accept_sender(address)
+        accept, message = context.will_accept_sender?(address)
 
         if (accept)
-          @transaction.sender = address
+          context.message.mail_from = address
         end
 
-        delegate.send_line(message)
+        context.reply(message)
       else
-        delegate.send_line("501 Email address is not RFC compliant")
+        context.reply("501 Email address is not RFC compliant")
       end
     end
 
-    interpret(/^\s*RCPT\s+TO:\s*<([^>]+)>\s*/) do |address|
-      if (@transaction.sender)
+    interpret(/\A\s*RCPT\s+TO:\s*<([^>]+)>\s*/) do |context, _, address|
+      if (context.message.mail_from)
         if (Mua::EmailAddress.valid?(address))
-          accept, message = will_accept_recipient(address)
+          accept, message = context.will_accept_recipient?(address)
 
           if (accept)
-            @transaction.recipients ||= [ ]
-            @transaction.recipients << address
+            context.message.rcpt_to << address
           end
 
-          delegate.send_line(message)
+          context.reply(message)
         else
-          delegate.send_line("501 Email address is not RFC compliant")
+          context.reply("501 Email address is not RFC compliant")
         end
       else
-        delegate.send_line("503 Sender not specified")
+        context.reply("503 Sender not specified")
       end
     end
     
-    interpret(/^\s*AUTH\s+PLAIN\s+(.*)\s*$/) do |auth|
+    interpret(/\A\s*AUTH\s+PLAIN\s+(.*)\s*\z/) do |context, _, auth|
       # 235 2.7.0 Authentication successful
-      delegate.send("235 Of course")
+      context.send("235 Of course!")
     end
 
-    interpret(/^\s*AUTH\s+PLAIN\s*$/) do
+    interpret(/\A\s*AUTH\s+PLAIN\s*\z/) do |context|
       # Multi-line authentication method
-      enter_state(:auth_plain)
+      context.transition!(state: :auth_plain)
     end
     
-    interpret(/^\s*STARTTLS\s*$/) do
-      if (@tls_started)
-        delegate.send_line("454 TLS already started")
-      elsif (delegate.tls?)
-        delegate.send_line("220 TLS ready to start")
-        delegate.start_tls(
-          private_key_file: Mua::SMTP::Server.private_key_path,
-          cert_chain_file: Mua::SMTP::Server.ssl_cert_path
+    interpret(/\A\s*STARTTLS\s*\z/) do |context|
+      if (context.tls?)
+        context.reply("454 TLS already started")
+      elsif (context.tls_configured?)
+        context.reply("220 TLS ready to start")
+        context.start_tls(
+          private_key_file: context.tls_key_path,
+          cert_chain_file: context.tls_cert_path
         )
         
-        @tls_started = true
+        context.tls!
       else
-        delegate.send_line("421 TLS not supported")
+        context.reply("421 TLS not supported")
       end
     end
     
-    interpret(/^\s*DATA\s*$/) do
-      if (@transaction.sender)
+    interpret(/\A\s*DATA\s*\z/) do |context|
+      if (context.message.mail_from and context.message.rcpt_to.any?)
+        context.reply("354 Supply message data")
+        context.transition!(state: :data)
       else
-        delegate.send_line("503 valid RCPT command must precede DATA")
+        context.reply("503 valid RCPT command must precede DATA")
       end
-      
-      enter_state(:data)
-      delegate.send_line("354 Supply message data")
     end
 
-    interpret(/^\s*NOOP\s*$/) do |remote_host|
-      delegate.send_line("250 OK")
+    interpret(/\A\s*NOOP\s*\z/) do |context|
+      context.reply("250 OK")
     end
 
-    interpret(/^\s*RSET\s*$/) do |remote_host|
-      delegate.send_line("250 Reset OK")
-      
-      enter_state(:reset)
+    interpret(/\A\s*RSET\s*\z/) do |context|
+      context.reply("250 Reset OK")
+
+      context.transition!(state: :reset)
     end
     
-    interpret(/^\s*QUIT\s*$/) do
-      delegate.send_line("221 #{delegate.server_name} closing connection")
+    interpret(/\A\s*QUIT\s*\z/) do |context|
+      context.reply("221 #{context.hostname} closing connection")
 
-      delegate.close_connection(true)
+      context.close!
+
+      context.transition!(state: :finished)
     end
   end
   
-  state :data do
-    interpret(/^\.$/) do
-      @transaction.remote_ip = delegate.remote_ip
+  state(:data) do
+    interpret(/\A\.\z/) do |context|
+      context.message.remote_ip = context.remote_ip
       
-      accept, message = will_accept_transaction(@transaction)
+      accept, message = context.will_accept_transaction?(context.message)
       
       if (accept)
-        accept, message = delegate.receive_transaction(@transaction)
+        accept, message = context.receive_transaction(context.message)
         
-        delegate.send_line(message)
+        context.reply(message)
       else
-        delegate.send_line(message)
+        context.reply(message)
       end
 
-      self.reset_transaction!
+      context.reset_transaction!
 
-      enter_state(:ready)
+      context.transition!(state: :ready)
     end
     
-    default do |line|
+    default do |context, line|
       # RFC5321 4.5.2 - Leading dot is removed if line has content
-
-      @transaction.data << (line.sub(/^\./, '') << Mua::Constants::CRLF)
+      context.message.data << (line.sub(/\A\./, '') << Mua::Constants::CRLF)
     end
   end
   
-  state :auth_plain do
+  state(:auth_plain) do
     # Receive a single line of authentication
     # ...
   end
   
-  state :reply do
-    enter do
+  state(:reply) do
+    enter do |context|
       # Random delay if required
-      delegate.send_line(@reply)
+      context.reply(@reply)
     end
     
-    default do
-      delegate.send_line("554 SMTP Synchronization Error")
-      enter_state(:ready)
+    default do |context, *args|
+      context.reply("554 SMTP Synchronization Error")
+      context.transition!(state: :ready)
     end
   end
 
-  state :timeout do
+  state(:timeout) do
     enter do
-      delegate.send_line("420 Idle connection closed")
+      context.reply("420 Idle connection closed")
 
-      delegate.close_connection(true)
+      context.close!
+
+      context.transition!(state: :finished)
     end
   end
 
-  # == Instance Methods =====================================================
-
-  def reset_transaction!
-    @transaction = Mua::SMTP::Server::Transaction.new
-  end
-
-  def send_banner
-    delegate.send_line("220 #{delegate.server_name} Mua ESMTP Server Ready")
-  end
-
-  def reset_ttl!
-    @timeout_at = Time.now + self.connection_ttl
-  end
-
-  def enter_state(state)
-    self.reset_ttl!
-    
-    super(state)
-  end
-
-  def connection_ttl
-    10
-  end
-  
-  def ttl_expired?
-    @timeout_at ? (Time.now > @timeout_at) : false
-  end
-  
-  def check_for_timeout!
-    if (self.ttl_expired?)
-      enter_state(:timeout)
-    end
-  end
-  
-  def will_accept_sender(sender)
-    [ true, "250 Accepted" ]
-  end
-  
-  def will_accept_recipient(recipient)
-    [ true, "250 Accepted" ]
-  end
-  
-  def will_accept_transaction(transaction)
-    [ true, "250 Accepted" ]
+  default do |context, error|
+    context.reply("500 Invalid command")
   end
 end

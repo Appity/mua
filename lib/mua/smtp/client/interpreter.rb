@@ -1,5 +1,5 @@
 require_relative '../../constants'
-require_relative '../../client/context'
+require_relative '../../interpreter'
 require_relative 'support'
 
 Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
@@ -209,20 +209,32 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
   state(:rcpt_to) do
     enter do |context|
       if (context.message)
-        context.reply("RCPT TO:<#{context.message.rcpt_to}>")
+        recipient = context.message.rcpt_to_iterator.next
+      
+        context.reply("RCPT TO:<#{recipient}>")
       else
         context.message_callback(false, "Delegate has no active message")
         context.transition!(state: :reset)
       end
+
+    rescue StopIteration
+      context.message_callback(false, "Message has no recipients")
+      context.transition!(state: :reset)
     end
     
     interpret(250) do |context, reply_messages|
+      # FIX: Should test more than one recipient
       if (context.message.test?)
         message.status = :test_passed
         context.transition!(state: :reset)
       else
-        context.transition!(state: :data)
+        recipient = context.message.rcpt_to_iterator.next
+
+        context.reply("RCPT TO:<#{recipient}>")
       end
+
+    rescue StopIteration
+      context.transition!(state: :data)
     end
     
     interpret(500..599) do |context, reply_code, _reply_messages|

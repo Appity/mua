@@ -5,23 +5,27 @@ require_relative '../support/smtp_delegate'
 require_relative '../support/mock_stream'
 
 RSpec.describe Mua::SMTP::Client::Interpreter, type: [ :interpreter, :reactor ], timeout: 1 do
-  Context = Mua::Client::Context
-  Interpreter = Mua::SMTP::Client::Interpreter
+  ClientContext = Mua::Client::Context
+  ClientInterpreter = Mua::SMTP::Client::Interpreter
 
   it 'defines a context type' do
-    expect(Interpreter.context).to be(Context)
+    expect(ClientInterpreter.context).to be(ClientContext)
 
-    expect(Interpreter.new(nil).context).to be_kind_of(Context)
+    expect(ClientInterpreter.new(nil).context).to be_kind_of(ClientContext)
+  end
+
+  it 'defines a state machine' do
+    expect(ClientInterpreter.machine).to be_kind_of(Mua::State::Machine)
   end
 
   it 'starts out in the initailized state' do
-    context = Interpreter.context.new
+    context = ClientInterpreter.context.new
 
     expect(context.state).to eq(:initialize)
   end
 
   it 'supports standard SMTP connections' do
-    with_interpreter(Interpreter) do |context, io|
+    with_interpreter(ClientInterpreter) do |context, io|
       io.puts('220 mail.example.com SMTP Example')
       expect(io.gets).to eq('HELO localhost')
 
@@ -33,7 +37,7 @@ RSpec.describe Mua::SMTP::Client::Interpreter, type: [ :interpreter, :reactor ],
   end
 
   context 'has pre-defined SMTP dialog tests' do
-    Dir.glob(File.expand_path('../smtp/dialog/*.yml', __dir__)).each do |path|
+    Dir.glob(File.expand_path('../smtp/client-dialog/*.yml', __dir__)).each do |path|
       script = YAML.load(File.open(path))
 
       tags = [ *script['tags'] ].compact.map do |tag|
@@ -41,7 +45,7 @@ RSpec.describe Mua::SMTP::Client::Interpreter, type: [ :interpreter, :reactor ],
       end.to_h
 
       it(script['name'] || File.basename(path, '.yml').gsub('-', ' '), dynamic: true, **tags) do
-        with_interpreter(Interpreter) do |context, io|
+        with_interpreter(ClientInterpreter) do |context, io|
           io.run_dialog(self, script)
         end
       end

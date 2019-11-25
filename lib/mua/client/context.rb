@@ -1,5 +1,6 @@
 require_relative 'context_extensions'
 require_relative '../state'
+require_relative '../smtp/common/context_extensions'
 
 Mua::Client::Context = Mua::State::Context.define(
   :smtp_host,
@@ -16,6 +17,9 @@ Mua::Client::Context = Mua::State::Context.define(
   :reply_message,
   reply_buffer: {
     default: -> { [ ] }
+  },
+  smtp_timeout: {
+    default: Mua::Constants::TIMEOUT_DEFAULT
   },
   features: {
     default: -> { { } }
@@ -47,5 +51,8 @@ Mua::Client::Context = Mua::State::Context.define(
     boolean: true,
     default: false
   },
-  includes: Mua::Client::ContextExtensions
+  includes: [
+    Mua::SMTP::Common::ContextExtensions,
+    Mua::Client::ContextExtensions
+  ]
 )

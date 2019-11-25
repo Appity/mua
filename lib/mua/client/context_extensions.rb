@@ -7,25 +7,6 @@ module Mua::Client::ContextExtensions
     !!self.proxy_host
   end
 
-  def read_line
-    task = self.read_task = self.reactor.async do
-      line = self.input.gets
-
-      line and yield(line.chomp)
-    end
-
-    task.wait
-
-    # FIX: Handle Async read interruptions
-
-  ensure
-    self.read_task = nil
-  end
-
-  def reply(*lines)
-    self.input.puts(*lines, separator: Mua::Constants::CRLF)
-  end
-
   def deliver!(message)
     self.message_queue << message
 

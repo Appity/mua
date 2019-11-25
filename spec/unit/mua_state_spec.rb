@@ -313,7 +313,7 @@ RSpec.describe Mua::State do
       end
 
       parser do |context|
-        case (input = context.input.shift.dtap)
+        case (input = context.input.shift)
         when 'a', 'an', 'the'
           context.buffer << input
           context.parser_redo!

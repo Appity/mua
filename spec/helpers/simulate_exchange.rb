@@ -3,15 +3,35 @@ require 'async/io/stream'
 require_relative '../support/mock_stream'
 
 module SimulateExchange
+  module DebugExtensions
+    def gets(*args)
+      super.tap { |v| $stdout.puts('recv: %s' % v.inspect) }
+    end
+
+    def puts(*args, separator: $/)
+      $stdout.puts('send: %s' % (args.length > 1 ? args.inspect : args[0].inspect))
+      super
+    end
+  end
+
   class Wrapper
     CRLF = "\r\n".freeze
 
     def initialize(interpreter_type, reactor, &block)
       @cio, @io = Async::IO::Socket.pair(:UNIX, :STREAM, 0).map do |io|
-        Async::IO::Stream.new(io, sync: true)
+        Async::IO::Stream.new(io, sync: true).tap do |stream|
+          if (ENV['DEBUG'])
+            stream.extend(DebugExtensions)
+          end
+        end
       end
 
       @context = interpreter_type.context.new(input: @cio)
+
+      @test_task = reactor.async do |task|
+        block.call(@context, self, task)
+      end
+
       @interpreter = interpreter_type.new(@context)
 
       @interpreter_task = reactor.async do |task|
@@ -20,17 +40,13 @@ module SimulateExchange
         InterpreterDebugLog.interpreter_run!(@interpreter)
       end
 
-      @test_task = reactor.async do |task|
-        block.call(@context, self, task)
-      end
-
       @messages = { }
 
       [ @interpreter_task, @test_task ].map(&:wait)
 
     ensure
-      @interpreter_task.stop
-      @test_task.stop
+      @interpreter_task&.stop
+      @test_task&.stop
 
       @cio.close
       @io.close
@@ -75,7 +91,7 @@ module SimulateExchange
     end
 
     def gets
-      @io.gets(CRLF)
+      @io.gets(CRLF, chomp: true)
     end
 
     # Write and call a block with the result

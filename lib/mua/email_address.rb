@@ -36,7 +36,7 @@ class Mua::EmailAddress
 
   # == Class Methods ========================================================
 
-  def self.valid_envelope_address?(address)
+  def self.valid?(address)
     !!(address and RFC822_ADDRESS.match(address))
   end
 end

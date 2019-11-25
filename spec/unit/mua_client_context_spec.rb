@@ -10,6 +10,7 @@ RSpec.describe Mua::Client::Context, type: :reactor do
     expect(context.smtp_password).to be(nil)
     expect(context.smtp_host).to be(nil)
     expect(context.smtp_port).to be(nil)
+    expect(context.smtp_timeout).to be(Mua::Constants::TIMEOUT_DEFAULT)
     expect(context.proxy_username).to be(nil)
     expect(context.proxy_password).to be(nil)
     expect(context.proxy_host).to be(nil)
@@ -43,6 +44,7 @@ RSpec.describe Mua::Client::Context, type: :reactor do
     context.smtp_password = 'smtp/pass'
     context.smtp_host = 'smtp.example.org'
     context.smtp_port = 587
+    context.smtp_timeout = 900
     context.proxy_username = 'socks5/user'
     context.proxy_password = 'socks5/pass'
     context.proxy_host = 'socks5.example.net'
@@ -66,6 +68,7 @@ RSpec.describe Mua::Client::Context, type: :reactor do
     expect(context.smtp_password).to eq('smtp/pass')
     expect(context.smtp_host).to eq('smtp.example.org')
     expect(context.smtp_port).to eq(587)
+    expect(context.smtp_timeout).to eq(900)
     expect(context.proxy_username).to eq('socks5/user')
     expect(context.proxy_password).to eq('socks5/pass')
     expect(context.proxy_host).to eq('socks5.example.net')

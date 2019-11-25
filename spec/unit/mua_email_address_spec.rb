@@ -9,7 +9,7 @@ RSpec.describe Mua::EmailAddress do
       'true@false' => true,
       'Example <address@example.com>' => false
     ) do |addr|
-      Mua::EmailAddress.valid_envelope_address?(addr)
+      Mua::EmailAddress.valid?(addr)
     end
   end
 end

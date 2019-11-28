@@ -31,28 +31,10 @@ module Mua::SMTP::Server::ContextExtensions
     end
   end
 
-  def reset_ttl!
-    @timeout_at = Time.now + self.connection_ttl
-  end
-
-  def connection_ttl
-    10
-  end
-
   def tls_configured?
     self.tls_key_path and self.tls_cert_path
   end
   
-  def ttl_expired?
-    @timeout_at ? (Time.now > @timeout_at) : false
-  end
-  
-  def check_for_timeout!
-    if (self.ttl_expired?)
-      # enter_state(:timeout)
-    end
-  end
-
   def log(channel, *args)
     # FIX: Log stuff?
   end

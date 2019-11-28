@@ -31,7 +31,11 @@ program.parse!(ARGV, into: options)
 #       per https://github.com/socketry/async-io/blob/master/examples/echo/server.rb
 
 Async do
-  server = Mua::SMTP::Server.new(timeout: options[:timeout])
+  server = Mua::SMTP::Server.new(timeout: options[:timeout]) do |context, state, event, *args|
+    next if (options[:silent])
+
+    puts('%s> %s' % [ context.remote_addr, event ])
+  end
 
   unless (options[:silent])
     puts('SMTP server listening on %s:%d' % [ server.bind, server.port ])

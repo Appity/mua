@@ -10,6 +10,22 @@ module Mua::SMTP::Server::ContextExtensions
     ]
   end
 
+  def remote_addr
+    if (remote_port)
+      '%s:%d' % [ remote_ip, remote_port ]
+    else
+      remote_ip
+    end
+  end
+
+  def local_addr
+    if (local_port)
+      '%s:%d' % [ local_ip, local_port ]
+    else
+      local_ip
+    end
+  end
+
   def reset_ttl!
     @timeout_at = Time.now + self.connection_ttl
   end

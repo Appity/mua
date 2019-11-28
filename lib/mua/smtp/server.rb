@@ -25,31 +25,32 @@ class Mua::SMTP::Server
   
   # == Instance Methods =====================================================
 
-  def initialize(bind: nil, port: nil, start: true, timeout: nil)
+  def initialize(interpreter: nil, bind: nil, port: nil, start: true, timeout: nil, &block)
+    @interpreter = interpreter || Mua::SMTP::Server::Interpreter
     @bind = bind || BIND_DEFAULT
     @port = port || PORT_DEFAULT
     @timeout = timeout || TIMEOUT_DEFAULT
 
-    start! if (start)
+    if (start)
+      self.start!(&block)
+    end
   end
 
-  def start!
-    Enumerator.new do |events|
-      @endpoint = Async::IO::Endpoint.tcp(@bind, @port)
+  def start!(&block)
+    @endpoint = Async::IO::Endpoint.tcp(@bind, @port)
 
-      @endpoint.bind do |server, task|
-        server.listen(BACKLOG_DEFAULT)
+    @endpoint.bind do |server, task|
+      server.listen(BACKLOG_DEFAULT)
 
-        server.accept_each do |peer|
-          peer.timeout = @timeout
+      server.accept_each do |peer|
+        peer.timeout = @timeout
 
-          Mua::SMTP::Server::Interpreter.new(
-            Async::IO::Stream.new(peer)
-          ).run.select do |_c, _s, event, *args|
-            EVENTS_PROPAGATED.include?(event)
-          end.each do |e|
-            events << e
-          end
+        @interpreter.new(
+          Async::IO::Stream.new(peer)
+        ).run.select do |_c, _s, event, *args|
+          EVENTS_PROPAGATED.include?(event)
+        end.each do |e|
+          yield(e) if (block_given?)
         end
       end
     end

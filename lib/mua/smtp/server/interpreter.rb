@@ -102,7 +102,7 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
     
     interpret(/\A\s*AUTH\s+PLAIN\s+(.*)\s*\z/) do |context, _, auth|
       # 235 2.7.0 Authentication successful
-      context.send("235 Of course!")
+      context.reply("235 Of course!")
     end
 
     interpret(/\A\s*AUTH\s+PLAIN\s*\z/) do |context|

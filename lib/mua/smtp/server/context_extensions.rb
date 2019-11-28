@@ -4,10 +4,15 @@ module Mua::SMTP::Server::ContextExtensions
   end
 
   def banner
-    '220 %s Mua %s Server Ready' % [
-      self.hostname,
-      self.protocol.to_s.upcase
-    ]
+    @banner ||=
+      '220 %s Mua %s Server Ready' % [
+        self.hostname,
+        self.protocol.to_s.upcase
+      ]
+  end
+
+  def banner=(str)
+    @banner = str
   end
 
   def remote_addr

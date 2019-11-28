@@ -45,6 +45,8 @@ class Mua::Interpreter
         self.class.context.new(input: input)
       end
     @machine = self.class.machine
+
+    yield(self) if (block_given?)
   end
 
   def run!

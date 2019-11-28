@@ -44,7 +44,9 @@ class Mua::State::Machine < Mua::State
     @states.key?(state)
   end
 
-  def run_interior(events, context)
+  def run_interior(context)
+    events = context.events
+    
     loop do
       unless (context.state)
         context.terminated!

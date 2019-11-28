@@ -98,6 +98,7 @@ class Mua::State
   def run(context)
     # REFACTOR: This needs to be something the Compiler can generate
     Enumerator.new do |events|
+      context.events = events
       terminated = false
 
       events << [ context, self, :enter ]
@@ -119,7 +120,7 @@ class Mua::State
         when Mua::State::Transition
           context.state = result.state
         else
-          self.run_interior(events, context)
+          self.run_interior(context)
         end
       end
 
@@ -134,8 +135,10 @@ class Mua::State
   end
   alias_method :call, :run
 
-  def run_interior(events, context)
+  def run_interior(context)
     # REFACTOR: This needs to be something the Compiler can generate
+    events = context.events
+
     loop do
       begin
         branch, *args =

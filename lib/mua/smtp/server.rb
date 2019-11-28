@@ -7,6 +7,12 @@ class Mua::SMTP::Server
   BIND_DEFAULT = '127.0.0.1'.freeze
   BACKLOG_DEFAULT = 128
   TIMEOUT_DEFAULT = 30
+
+  EVENTS_PROPAGATED = %i[
+    connected
+    disconnected
+    timeout
+  ]
   
   # == Extensions ===========================================================
   
@@ -28,17 +34,23 @@ class Mua::SMTP::Server
   end
 
   def start!
-    @endpoint = Async::IO::Endpoint.tcp(@bind, @port)
+    Enumerator.new do |events|
+      @endpoint = Async::IO::Endpoint.tcp(@bind, @port)
 
-    @endpoint.bind do |server, task|
-      server.listen(BACKLOG_DEFAULT)
+      @endpoint.bind do |server, task|
+        server.listen(BACKLOG_DEFAULT)
 
-      server.accept_each do |peer|
-        peer.timeout = @timeout
+        server.accept_each do |peer|
+          peer.timeout = @timeout
 
-        Mua::SMTP::Server::Interpreter.new(
-          Async::IO::Stream.new(peer)
-        ).run!
+          Mua::SMTP::Server::Interpreter.new(
+            Async::IO::Stream.new(peer)
+          ).run.select do |_c, _s, event, *args|
+            EVENTS_PROPAGATED.include?(event)
+          end.each do |e|
+            events << e
+          end
+        end
       end
     end
   end

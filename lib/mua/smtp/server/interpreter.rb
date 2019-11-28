@@ -11,25 +11,22 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
     enter do |context|
       io = context.input.io
 
-      if (io.respond_to?(:peeraddr))
-        # FIX: Decode with Socket and assign
-        p io.peeraddr
-        context.remote_ip
-      else
-        context.remote_ip = 'socket'
-        context.remote_port = 0
-      end
+      case (io.remote_address.afamily)
+      when Socket::AF_INET
+        context.remote_ip, context.remote_port = io.remote_address.ip_unpack
+        context.local_ip, context.local_port = io.local_address.ip_unpack
+      when Socket::AF_UNIX
+        context.remote_ip = 'localhost'
+        context.remote_port = nil
 
-      if (io.respond_to?(:addr))
-        # FIX: Decode with Socket and assign
-        p io.addr
-      else
-        context.local_ip = 'socket'
-        context.local_port = 0
+        context.local_ip = 'localhost'
+        context.local_port = nil
       end
 
       context.reply(context.banner)
-      
+
+      context.event!(self, :connected)
+
       context.transition!(state: :reset)
     end
   end
@@ -208,8 +205,15 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
       context.reply("420 Idle connection closed")
 
       context.close!
+      context.event!(self, :timeout)
 
       context.transition!(state: :finished)
+    end
+  end
+
+  state(:finished) do
+    enter do |context|
+      context.event!(self, :disconnected)
     end
   end
 

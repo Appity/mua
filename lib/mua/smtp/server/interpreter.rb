@@ -199,8 +199,12 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
     end
   end
 
+  interpret(Mua::Parser::Timeout) do |context|
+    context.transition!(state: :timeout)
+  end
+
   state(:timeout) do
-    enter do
+    enter do |context|
       context.reply("420 Idle connection closed")
 
       context.close!
@@ -210,6 +214,6 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
   end
 
   default do |context, error|
-    context.reply("500 Invalid command")
+    context.reply("500 Invalid or incomplete command")
   end
 end

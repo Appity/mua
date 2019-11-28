@@ -12,28 +12,35 @@ module Mua::State::Compiler
         '-> (context, branch, *args) do',
         'case (branch)',
         *interpreters.flat_map.with_index do |(match, block), i|
-          b.local_variable_set(:"__match_#{i}", block)
+          b.local_variable_set(:"__block_#{i}", block)
 
           case (match)
           when Regexp
             [
               'when %s' % match.inspect,
-              '__match_%d.call(context, *$~, *args)' % i
+              '__block_%d.call(context, *$~, *args)' % i
             ]
           when Range
             [
               'when %s' % match.inspect,
-              '__match_%d.call(context, branch, *args)' % i
+              '__block_%d.call(context, branch, *args)' % i
             ]
           when String
             [
               'when %s' % match.dump,
-              '__match_%d.call(context, *args)' % i
+              '__block_%d.call(context, *args)' % i
             ] 
           when Symbol, Integer, Float, true, false, nil
             [
               'when %s' % match.inspect,
-              '__match_%d.call(context, *args)' % i
+              '__block_%d.call(context, *args)' % i
+            ]
+          when Mua::Token
+            mvar = :"__match_#{i}"
+            b.local_variable_set(mvar, match)
+            [
+              'when %s' % mvar,
+              '__block_%d.call(context, *args)' % i
             ]
           else
             raise "Unsupported branch type #{match.class}"

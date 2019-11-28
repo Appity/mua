@@ -1,9 +1,12 @@
+require_relative './token'
+
 module Mua::Parser
   # == Classes ==============================================================
   
-  module Redo
+  Redo = Mua::Token.new('Redo')
     # Used to indicate a parsing pass should be repeated.
-  end
+  
+  Timeout = Mua::Token.new('Timeout')
 
   # == Module Methods =======================================================
 
@@ -14,12 +17,18 @@ module Mua::Parser
           return if (context.input.eof?)
 
           block.call(context, context.input.gets(separator, chomp: chomp))
+
+        rescue Async::TimeoutError
+          block.call(Timeout)
         end
       else
         -> (context) do
           return if (context.input.eof?)
 
           context.input.gets(separator, chomp: chomp)
+
+        rescue Async::TimeoutError
+          Timeout
         end
       end
     elsif (match)
@@ -28,12 +37,18 @@ module Mua::Parser
           return if (context.input.eof?)
 
           block.call(context, context.input.read_until(match, chomp: chomp))
+
+        rescue Async::TimeoutError
+          block.call(Timeout)
         end
       else
         -> (context) do
           return if (context.input.eof?)
 
           context.input.read_until(match, chomp: chomp)
+
+        rescue Async::TimeoutError
+          Timeout
         end
       end
     elsif (exactly)
@@ -42,12 +57,18 @@ module Mua::Parser
           return if (context.input.eof?)
 
           block.call(context, context.input.read_exactly(exactly))
+
+        rescue Async::TimeoutError
+          block.call(Timeout)
         end
       else
         -> (context) do
           return if (context.input.eof?)
 
           context.input.read_exactly(exactly)
+
+        rescue Async::TimeoutError
+          Timeout
         end
       end
     elsif (partial)
@@ -58,12 +79,18 @@ module Mua::Parser
           return if (context.input.eof?)
 
           block.call(context, context.input.read_exactly(partial))
+
+        rescue Async::TimeoutError
+          block.call(Timeout)
         end
       else
         -> (context) do
           return if (context.input.eof?)
 
           context.input.read_exactly(partial)
+
+        rescue Async::TimeoutError
+          Timeout
         end
       end
     elsif (block)

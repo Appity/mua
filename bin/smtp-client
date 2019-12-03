@@ -1,0 +1,75 @@
+#!/usr/bin/env ruby
+
+$LOAD_PATH << File.expand_path('../lib', __dir__)
+
+require 'bundler'
+require 'optparse'
+
+Bundler.require(:default, ENV['APP_ENV']&.to_sym || :development)
+
+require 'mua'
+require 'async'
+require 'logger'
+
+# Async.logger.level = Logger::DEBUG
+
+# == Main ===================================================================
+
+# NOTE: These need to be defined like x-y and are transformed to x_y
+options = {
+  timeout: 30,
+  silent: false,
+  'proxy-port': 1080,
+  recursive: false,
+  'dry-run': false
+}
+
+program = OptionParser.new do |opts|
+  opts.on('-s', '--silent', 'Suppress output')
+  opts.on('-h', '--smtp-host HOST', 'Use SMTP host')
+  opts.on('-H', '--smtp-port PORT', 'Use SMTP port', Integer)
+  opts.on('-p', '--proxy-host HOST', 'Use SOCKS5 proxy host')
+  opts.on('-P', '--proxy-port PORT', 'Use SOCKS5 proxy port', Integer)
+  opts.on('-t', '--timeout=TIMEOUT', 'Set SMTP command timeout (seconds)', Integer)
+  opts.on('-R', '--recursive', 'Import email data recurisvely')
+  opts.on('-y', '--dry-run', 'Dry run, do not actually send')
+end
+
+args = program.parse!(ARGV, into: options)
+
+options.transform_keys! do |k|
+  k.to_s.tr('-', '_').to_sym
+end
+
+# TODO: Add Async::IO::Trap.new(:INT)
+#       per https://github.com/socketry/async-io/blob/master/examples/echo/server.rb
+
+Async do |reactor|
+  reactor.async do |task|
+    options[:task] = task
+
+    client = Mua::SMTP::Client.new(options) do |context, state, event, *args|
+      next if (options[:silent])
+
+      puts('%s> %s' % [ context.remote_addr, event ])
+    end
+  end
+
+  args.each do |arg|
+    spec = options[:recursive] ? '**/*' : '*'
+
+    Dir.glob(File.expand_path(File.join(arg, spec), Dir.pwd)).each do |f|
+      next unless (File.file?(f))
+
+      puts f
+
+      data = File.read(f).gsub(/\r?\n/, "\r\n")
+
+      client.deliver!(
+        mail_from: 'test@pistachio.email',
+        rcpt_to: 'test@pistachio.email',
+        data: data
+      )
+    end
+  end
+end

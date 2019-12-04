@@ -22,6 +22,7 @@ options = {
 
 program = OptionParser.new do |opts|
   opts.on('-d', '--debug', 'Enable debug log of stream communcation')
+  opts.on('-v', '--verbose', 'Enable versbose mode')
   opts.on('-s', '--silent', 'Suppress output')
   opts.on('-t', '--timeout=TIMEOUT', 'Set SMTP command timeout (seconds)', Integer)
 end
@@ -39,7 +40,7 @@ Async do
   received = Hash.new(0)
 
   server = Mua::SMTP::Server.new(timeout: options[:timeout]) do |context, state, event, *args|
-    unless (options[:silent])
+    if (options[:verbose])
       puts('%s> %s' % [ context.remote_addr, event ])
     end
 

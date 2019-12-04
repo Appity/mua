@@ -61,6 +61,7 @@ program = OptionParser.new do |opts|
   opts.on('-y', '--dry-run', 'Dry run, do not actually send')
   opts.on('-l', '--limit LIMIT', 'Limit sending volume', Integer)
   opts.on('-S', '--shuffle', 'Shuffle sending order')
+  opts.on('-f', '--fork COUNT', 'Fork N times before sending', Integer)
 end
 
 args = program.parse!(ARGV, into: options)
@@ -87,6 +88,12 @@ args.each do |path|
   end
 end
 
+if (options[:fork])
+  (options[:fork] - 1).times do |f|
+    break unless fork
+  end
+end
+
 Async do |reactor|
   options[:reactor] = reactor
 
@@ -97,7 +104,9 @@ Async do |reactor|
   end
 
   deliveries.each do |delivery|
-    puts delivery[:name]
+    unless (options[:silent])
+      puts delivery[:name]
+    end
 
     client.deliver!(
       mail_from: 'test@pistachio.email',

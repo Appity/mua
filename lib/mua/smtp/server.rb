@@ -10,6 +10,8 @@ class Mua::SMTP::Server
 
   EVENTS_PROPAGATED = %i[
     connected
+    deliver_accept
+    deliver_reject
     disconnected
     timeout
   ]

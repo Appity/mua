@@ -21,11 +21,16 @@ options = {
 }
 
 program = OptionParser.new do |opts|
+  opts.on('-d', '--debug', 'Enable debug log of stream communcation')
   opts.on('-s', '--silent', 'Suppress output')
   opts.on('-t', '--timeout=TIMEOUT', 'Set SMTP command timeout (seconds)', Integer)
 end
 
 program.parse!(ARGV, into: options)
+
+if (options[:debug])
+  Async::IO::Stream.send(:include, Mua::Debug::StreamExtensions)
+end
 
 # TODO: Add Async::IO::Trap.new(:INT)
 #       per https://github.com/socketry/async-io/blob/master/examples/echo/server.rb

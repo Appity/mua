@@ -19,6 +19,7 @@ require 'logger'
 options = {
   timeout: 30,
   silent: false,
+  debug: false,
   'proxy-port': 1080,
   recursive: false,
   'dry-run': false
@@ -26,6 +27,7 @@ options = {
 
 program = OptionParser.new do |opts|
   opts.on('-s', '--silent', 'Suppress output')
+  opts.on('-d', '--debug', 'Enable debug log of stream communcation')
   opts.on('-h', '--smtp-host HOST', 'Use SMTP host')
   opts.on('-H', '--smtp-port PORT', 'Use SMTP port', Integer)
   opts.on('-p', '--proxy-host HOST', 'Use SOCKS5 proxy host')
@@ -41,35 +43,40 @@ options.transform_keys! do |k|
   k.to_s.tr('-', '_').to_sym
 end
 
+if (options[:debug])
+  Async::IO::Stream.include(Mua::Debug::StreamExtensions)
+end
+
 # TODO: Add Async::IO::Trap.new(:INT)
 #       per https://github.com/socketry/async-io/blob/master/examples/echo/server.rb
 
 Async do |reactor|
-  reactor.async do |task|
-    options[:task] = task
+  options[:reactor] = reactor
 
-    client = Mua::SMTP::Client.new(options) do |context, state, event, *args|
-      next if (options[:silent])
+  client = Mua::SMTP::Client.new(options) do |context, state, event, *args|
+    next if (options[:silent])
 
-      puts('%s> %s' % [ context.remote_addr, event ])
-    end
+    puts('%s> %s' % [ context.remote_addr, event ])
   end
 
-  args.each do |arg|
-    spec = options[:recursive] ? '**/*' : '*'
+  reactor.async do
+    args.each do |arg|
+      spec = options[:recursive] ? '**/*' : '*'
 
-    Dir.glob(File.expand_path(File.join(arg, spec), Dir.pwd)).each do |f|
-      next unless (File.file?(f))
+      Dir.glob(File.expand_path(File.join(arg, spec), Dir.pwd)).each do |f|
+        next unless (File.file?(f))
 
-      puts f
+        puts f
 
-      data = File.read(f).gsub(/\r?\n/, "\r\n")
+        data = File.read(f).gsub(/\r?\n/, "\r\n")
 
-      client.deliver!(
-        mail_from: 'test@pistachio.email',
-        rcpt_to: 'test@pistachio.email',
-        data: data
-      )
+        client.deliver!(
+          mail_from: 'test@pistachio.email',
+          rcpt_to: 'test@pistachio.email',
+          data: data
+        )
+        client.quit
+      end
     end
   end
 end

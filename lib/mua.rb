@@ -4,6 +4,7 @@ module Mua
 end
 
 require_relative 'mua/version'
+require_relative 'mua/debug'
 
 require_relative 'mua/attr_boolean'
 require_relative 'mua/client'

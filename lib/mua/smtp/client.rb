@@ -23,20 +23,27 @@ class Mua::SMTP::Client
   
   
   def initialize(**options, &block)
+    @reactor = options[:reactor]
     @context = Mua::Client::Context.new(DEFAULTS.merge(options))
     @endpoint = Async::IO::Endpoint.tcp(@context.smtp_host, @context.smtp_port)
 
-    @endpoint.connect do |peer|
-      @context.input = Async::IO::Stream.new(peer)
+    @reactor.async do |task|
+      @endpoint.connect do |peer|
+        @context.input = Async::IO::Stream.new(peer)
 
-      @interpreter = Mua::SMTP::Client::Interpreter.new(@context)
+        @interpreter = Mua::SMTP::Client::Interpreter.new(@context)
 
-      @interpreter.run!(&block)
+        @interpreter.run!(&block)
+      end
     end
   end
 
   def deliver!(**args)
-    # ...
+    @context.message_queue << Mua::SMTP::Message.new(args)
+  end
+
+  def quit
+    @context.quit
   end
 end
 

@@ -162,9 +162,13 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
       
       if (accept)
         accept, message = context.receive_transaction(context.message)
+
+        context.event!(self, :deliver_accept, message)
         
         context.reply(message)
       else
+        context.event!(self, :deliver_reject, message)
+
         context.reply(message)
       end
 

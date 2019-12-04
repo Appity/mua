@@ -32,9 +32,4 @@ Gem::Specification.new do |spec|
 
   spec.add_dependency 'async'
   spec.add_dependency 'async-io'
-
-  spec.add_development_dependency 'bundler'
-  spec.add_development_dependency 'rake'
-  spec.add_development_dependency 'rspec'
-  spec.add_development_dependency 'async-rspec'
 end

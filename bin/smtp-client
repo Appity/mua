@@ -52,6 +52,7 @@ options = {
 program = OptionParser.new do |opts|
   opts.on('-s', '--silent', 'Suppress output')
   opts.on('-d', '--debug', 'Enable debug log of stream communcation')
+  opts.on('-v', '--verbose', 'Enable versbose mode')
   opts.on('-h', '--smtp-host HOST', 'Use SMTP host')
   opts.on('-H', '--smtp-port PORT', 'Use SMTP port', Integer)
   opts.on('-p', '--proxy-host HOST', 'Use SOCKS5 proxy host')
@@ -62,6 +63,7 @@ program = OptionParser.new do |opts|
   opts.on('-l', '--limit LIMIT', 'Limit sending volume', Integer)
   opts.on('-S', '--shuffle', 'Shuffle sending order')
   opts.on('-f', '--fork COUNT', 'Fork N times before sending', Integer)
+  opts.on('-w', '--stopwatch', 'Enable performance metrics')
 end
 
 args = program.parse!(ARGV, into: options)
@@ -94,17 +96,19 @@ if (options[:fork])
   end
 end
 
+start = Time.now.utc
+
 Async do |reactor|
   options[:reactor] = reactor
 
   client = Mua::SMTP::Client.new(options) do |context, state, event, *args|
-    next if (options[:silent])
+    next unless (options[:verbose])
 
     puts('%s> %s' % [ context.remote_addr, event ])
   end
 
   deliveries.each do |delivery|
-    unless (options[:silent])
+    if (options[:verbose])
       puts delivery[:name]
     end
 
@@ -116,4 +120,15 @@ Async do |reactor|
 
     client.quit!
   end
+end
+
+if (options[:stopwatch])
+  delta = Time.now - start
+
+  puts('Sent %d message(s) in %.1fs at %.1fMPS (%.1fMB/s)' % [
+    deliveries.length,
+    delta,
+    deliveries.length / delta,
+    deliveries.map { |d| d[:data].bytesize }.sum / delta / 1024**2
+  ])
 end

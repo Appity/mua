@@ -10,7 +10,7 @@ module Mua::Client::ContextExtensions
   def deliver!(message)
     self.message_queue << message
 
-    self.force_transition!(state: :ready, from: :ready)
+    self.force_transition!(state: :deliver, from: :ready)
   end
 
   def message_pop
@@ -21,14 +21,14 @@ module Mua::Client::ContextExtensions
     self.message_queue.any?
   end
 
-  def quit
+  def quit!
     self.close_requested!
     self.force_transition!(state: :quit, from: :ready)
   end
 
   def force_transition!(state:, from: nil)
     if (!from or self.state == from)
-      self.state = state
+      @state_target = state
       self.read_task&.stop
     end
   end

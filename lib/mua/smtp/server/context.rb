@@ -1,3 +1,5 @@
+require 'securerandom'
+
 require_relative 'context_extensions'
 
 Mua::SMTP::Server::Context = Mua::State::Context.define(
@@ -12,6 +14,12 @@ Mua::SMTP::Server::Context = Mua::State::Context.define(
   :local_port,
   :remote_ip,
   :remote_port,
+  id: {
+    default: -> { SecureRandom.uuid }
+  },
+  connected_at: {
+    default: -> { Time.now.utc }
+  },
   hostname: {
     default: 'localhost'
   },

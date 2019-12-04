@@ -5,18 +5,19 @@ module Mua
     module Common
       module ContextExtensions
         def read_line
-          task = self.read_task = self.reactor.async do
-            line = self.input.gets
-      
-            line and yield(line.chomp)
-          end
-      
-          task.wait
+          self.read_task = self.reactor.async do
+            if (line = self.input.gets)
+              yield(line.chomp)
+            elsif (@state_target)
+              transition!(state: @state_target)
+            end
+          end.wait
       
           # FIX: Handle Async read interruptions
       
         ensure
           self.read_task = nil
+          @state_target = nil
         end
       
         def reply(*lines)

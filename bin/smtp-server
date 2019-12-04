@@ -29,17 +29,30 @@ end
 program.parse!(ARGV, into: options)
 
 if (options[:debug])
-  Async::IO::Stream.send(:include, Mua::Debug::StreamExtensions)
+  Async::IO::Stream.prepend(Mua::Debug::StreamExtensions)
 end
 
 # TODO: Add Async::IO::Trap.new(:INT)
 #       per https://github.com/socketry/async-io/blob/master/examples/echo/server.rb
 
 Async do
-  server = Mua::SMTP::Server.new(timeout: options[:timeout]) do |context, state, event, *args|
-    next if (options[:silent])
+  received = Hash.new(0)
 
-    puts('%s> %s' % [ context.remote_addr, event ])
+  server = Mua::SMTP::Server.new(timeout: options[:timeout]) do |context, state, event, *args|
+    unless (options[:silent])
+      puts('%s> %s' % [ context.remote_addr, event ])
+    end
+
+    case (event)
+    when :deliver_accept
+      received[context.id] += 1
+    when :disconnected
+      puts('%s> Received %d message(s) at %.1fMPS' % [
+        context.remote_addr,
+        received[context.id],
+        received[context.id] / (Time.now - context.connected_at)
+      ])
+    end
   end
 
   unless (options[:silent])

@@ -164,10 +164,10 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
   
   state(:ready) do
     enter do |context|
-      if (context.close_requested?)
-        context.transition!(state: :quit)
-      elsif (context.message_queued?)
+      if (context.message_queued?)
         context.transition!(state: :deliver)
+      elsif (context.close_requested?)
+        context.transition!(state: :quit)
       end
     end
     

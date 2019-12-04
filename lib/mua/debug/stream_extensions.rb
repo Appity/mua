@@ -1,4 +1,8 @@
 module Mua::Debug::StreamExtensions
+  def blarg
+    :blarg
+  end
+
   def gets(*args)
     super.tap { |v| $stdout.puts('recv: %s' % v.inspect) }
   end

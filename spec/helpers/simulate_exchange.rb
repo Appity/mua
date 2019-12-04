@@ -70,7 +70,7 @@ module SimulateExchange
             @context.deliver!(message)
           end
         elsif (data = cmd['quit'])
-          @context.quit
+          @context.quit!
         elsif (data = cmd['verify_delivery'])
           [ data ].flatten.each do |delivery|
             message = @messages[delivery['id']]

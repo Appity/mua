@@ -13,6 +13,30 @@ require 'logger'
 
 # Async.logger.level = Logger::DEBUG
 
+# == Support Methods ========================================================
+
+def samples(path, recursive: false, shuffle: false, limit: false)
+  spec = recursive ? '**/*' : '*'
+
+  files = Dir.glob(File.expand_path(File.join(path, spec), Dir.pwd)).select do |f|
+    File.file?(f)
+  end
+
+  if (shuffle)
+    files.shuffle!
+  end
+
+  if (limit)
+    files = files.first(limit)
+  end
+
+  if (block_given?)
+    files.each(&Proc.new)
+  end
+
+  files
+end
+
 # == Main ===================================================================
 
 # NOTE: These need to be defined like x-y and are transformed to x_y
@@ -35,6 +59,8 @@ program = OptionParser.new do |opts|
   opts.on('-t', '--timeout=TIMEOUT', 'Set SMTP command timeout (seconds)', Integer)
   opts.on('-R', '--recursive', 'Import email data recurisvely')
   opts.on('-y', '--dry-run', 'Dry run, do not actually send')
+  opts.on('-l', '--limit LIMIT', 'Limit sending volume', Integer)
+  opts.on('-S', '--shuffle', 'Shuffle sending order')
 end
 
 args = program.parse!(ARGV, into: options)
@@ -44,11 +70,22 @@ options.transform_keys! do |k|
 end
 
 if (options[:debug])
-  Async::IO::Stream.include(Mua::Debug::StreamExtensions)
+  Async::IO::Stream.prepend(Mua::Debug::StreamExtensions)
 end
 
 # TODO: Add Async::IO::Trap.new(:INT)
 #       per https://github.com/socketry/async-io/blob/master/examples/echo/server.rb
+
+deliveries = [ ]
+
+args.each do |path|
+  samples(path, shuffle: options[:shuffle], limit: options[:limit], recursive: options[:recursive]) do |f|
+    deliveries << {
+      name: f.delete_prefix(Dir.pwd + '/'),
+      data: File.read(f).gsub(/\r?\n/, "\r\n")
+    }
+  end
+end
 
 Async do |reactor|
   options[:reactor] = reactor
@@ -59,24 +96,15 @@ Async do |reactor|
     puts('%s> %s' % [ context.remote_addr, event ])
   end
 
-  reactor.async do
-    args.each do |arg|
-      spec = options[:recursive] ? '**/*' : '*'
+  deliveries.each do |delivery|
+    puts delivery[:name]
 
-      Dir.glob(File.expand_path(File.join(arg, spec), Dir.pwd)).each do |f|
-        next unless (File.file?(f))
+    client.deliver!(
+      mail_from: 'test@pistachio.email',
+      rcpt_to: 'test@pistachio.email',
+      data: delivery[:data]
+    )
 
-        puts f
-
-        data = File.read(f).gsub(/\r?\n/, "\r\n")
-
-        client.deliver!(
-          mail_from: 'test@pistachio.email',
-          rcpt_to: 'test@pistachio.email',
-          data: data
-        )
-        client.quit
-      end
-    end
+    client.quit!
   end
 end

@@ -21,13 +21,12 @@ class Mua::SMTP::Client
   
   # == Instance Methods =====================================================
   
-  
   def initialize(**options, &block)
     @reactor = options[:reactor]
     @context = Mua::Client::Context.new(DEFAULTS.merge(options))
     @endpoint = Async::IO::Endpoint.tcp(@context.smtp_host, @context.smtp_port)
 
-    @reactor.async do |task|
+    @task = @reactor.async do |task|
       @endpoint.connect do |peer|
         @context.input = Async::IO::Stream.new(peer)
 
@@ -39,11 +38,11 @@ class Mua::SMTP::Client
   end
 
   def deliver!(**args)
-    @context.message_queue << Mua::SMTP::Message.new(args)
+    @context.deliver!(Mua::SMTP::Message.new(args))
   end
 
-  def quit
-    @context.quit
+  def quit!
+    @context.quit!
   end
 end
 

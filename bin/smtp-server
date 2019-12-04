@@ -37,7 +37,12 @@ end
 #       per https://github.com/socketry/async-io/blob/master/examples/echo/server.rb
 
 Async do
-  received = Hash.new(0)
+  received = Hash.new do |h,k|
+    h[k] = {
+      messages: 0,
+      bytes: 0
+    }
+  end
 
   server = Mua::SMTP::Server.new(timeout: options[:timeout]) do |context, state, event, *args|
     if (options[:verbose])
@@ -46,12 +51,16 @@ Async do
 
     case (event)
     when :deliver_accept
-      received[context.id] += 1
+      received[context.id][:messages] += 1
+      received[context.id][:bytes] += context.messages.last.data.bytesize
     when :disconnected
-      puts('%s> Received %d message(s) at %.1fMPS' % [
+      cr = received[context.id]
+
+      puts('%s> Received %d message(s) at %.1fMPS (%.1fMB/s)' % [
         context.remote_addr,
-        received[context.id],
-        received[context.id] / (Time.now - context.connected_at)
+        cr[:messages],
+        cr[:messages] / (Time.now - context.connected_at),
+        (cr[:bytes] / (Time.now - context.connected_at)) / 1024**2
       ])
     end
   end

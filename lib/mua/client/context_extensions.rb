@@ -1,4 +1,19 @@
+require 'resolv'
+
 module Mua::Client::ContextExtensions
+  def smtp_host_address_type
+    case (self.smtp_host)
+    when nil
+      nil
+    when Resolv::IPv4::Regex
+      :ipv4
+    when Resolv::IPv6::Regex
+      :ipv6
+    else
+      :fqdn
+    end
+  end
+
   def auth_required?
     !!(self.smtp_username or self.smtp_password)
   end
@@ -19,6 +34,10 @@ module Mua::Client::ContextExtensions
 
   def message_queued?
     self.message_queue.any?
+  end
+
+  def close!
+    self.input.close
   end
 
   def quit!

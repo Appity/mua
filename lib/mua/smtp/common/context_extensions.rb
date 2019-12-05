@@ -19,6 +19,10 @@ module Mua
           self.read_task = nil
           @state_target = nil
         end
+        
+        def write(data)
+          self.input.write(data)
+        end
       
         def reply(*lines)
           self.input.puts(*lines, separator: Mua::Constants::CRLF)

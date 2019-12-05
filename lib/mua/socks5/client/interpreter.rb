@@ -1,117 +1,83 @@
 require_relative '../../constants'
 
-class Mua::SOCKS5::Client::Interpreter < Mua::Interpreter
-  # == Constants ============================================================
-
-  # RFC1928 and RFC1929 define these values
-  SOCKS5_VERSION = 5
-
-  SOCKS5_METHOD = {
-    no_auth: 0,
-    gssapi: 1,
-    username_password: 2
-  }.freeze
-  
-  SOCKS5_COMMAND = {
-    connect: 1,
-    bind: 2
-  }.freeze
-  
-  SOCKS5_REPLY = {
-    0 => 'Succeeded',
-    1 => 'General SOCKS server failure',
-    2 => 'Connection not allowed',
-    3 => 'Network unreachable',
-    4 => 'Host unreachable',
-    5 => 'Connection refused',
-    6 => 'TTL expired',
-    7 => 'Command not supported',
-    8 => 'Address type not supported'
-  }.freeze
-  
-  SOCKS5_ADDRESS_TYPE = {
-    ipv4: 1,
-    domainname: 3,
-    ipv6: 4
-  }.freeze
-  
-  SOCKS5_PORT = Mua::Constants::SERVICE_PORT[:socks5]
-
-  # == State Mapping ========================================================
-
-  state :initialized do
-    enter do
-      proxy_options = delegate.options[:proxy]
-
+Mua::SOCKS5::Client::Interpreter = Mua::Interpreter.define do
+  state(:initialized) do
+    enter do |context|
       socks_methods = [ ]
       
-      if (proxy_options[:username])
-        socks_methods << SOCKS5_METHOD[:username_password]
+      if (context.proxy_username)
+        socks_methods << Mua::Constants::SOCKS5_METHOD[:username_password]
       end
       
-      proxy_options[:port] ||= SOCKS5_PORT
+      context.proxy_port ||= Mua::Constants::SERVICE_PORT[:socks5]
 
-      delegate.debug_notification(:proxy, "Initiating proxy connection through #{proxy_options[:host]}:#{proxy_options[:port]}")
+      context.debug_notification(:proxy, "Initiating proxy connection through #{context.proxy_host}:#{context.proxy_port}")
 
-      delegate.send_data(
+      context.write(
         [
-          SOCKS5_VERSION,
+          Mua::Constants::SOCKS5_VERSION,
           socks_methods.length,
           socks_methods
         ].flatten.pack('CCC*')
       )
     end
     
-    parse(exactly: 2) do |s|
-      _version, method = s.slice!(0,2).unpack('CC')
+    parser(exactly: 2) do |context, bytes|
+      _version, method = bytes.slice!(0,2).unpack('CC')
     
       method
     end
     
-    interpret(SOCKS5_METHOD[:username_password]) do
-      enter_state(:authentication)
+    interpret(Mua::Constants::SOCKS5_METHOD[:username_password]) do |context|
+      context.transition!(state: :authentication)
     end
     
-    default do
-      enter_state(:resolving_destination)
+    default do |context|
+      context.transition!(state: :request)
     end
   end
   
-  state :resolving_destination do
-    enter do
-      # FIX: Pass-through host request here...
-      delegate.resolve_hostname(delegate.options[:host]) do |address|
-        @destination_address = address
-        enter_state(:connect_through_proxy)
-      end
-    end
-  end
-  
-  state :connect_through_proxy do
-    enter do
-      delegate.proxy_connection_initiated!
-      
-      if (@destination_address)
-        delegate.debug_notification(:proxy, "Sending proxy connection request to #{@destination_address.unpack('CCCC').join('.')}:#{delegate.options[:port]}")
+  state(:request) do
+    enter do |context|
+      case (context.smtp_host_address_type)
+      when :ipv4
+        context.write([
+          Mua::Constants::SOCKS5_VERSION,
+          Mua::Constants::SOCKS5_COMMAND[:connect],
+          Mua::Constants::SOCKS5_ADDRESS_TYPE[:ipv4],
+          Socket.sockaddr_in(0, context.smtp_host)[4, 4],
+          context.smtp_port
+        ].pack('CCxCSn'))
 
-        delegate.send_data(
-          [
-            SOCKS5_VERSION,
-            SOCKS5_COMMAND[:connect],
-            0,
-            SOCKS5_ADDRESS_TYPE[:ipv4],
-            @destination_address,
-            delegate.options[:port]
-          ].pack('CCCCA4n')
-        )
-      else
-        @error_message = "Could not resolve hostname #{delegate.options[:host]}"
-        enter_state(:failed)
+        context.transition!(state: :reply_ipv4)
+      when :fqdn
+        context.write([
+          Mua::Constants::SOCKS5_VERSION,
+          Mua::Constants::SOCKS5_COMMAND[:connect],
+          Mua::Constants::SOCKS5_ADDRESS_TYPE[:domainname],
+          context.smtp_host.length,
+          context.smtp_host,
+          context.smtp_port
+        ].pack('CCxCCA*dn'))
+
+        context.transition!(state: :reply_hostname)
+      when :ipv6
+        context.write([
+          Mua::Constants::SOCKS5_VERSION,
+          SOCKS5_COMMAND[:connect],
+          SOCKS5_ADDRESS_TYPE[:ipv6],
+          Socket.sockaddr_in(0, context.smtp_host)[8, 16],
+          context.smtp_port
+        ].pack('CCxCA16n'))
+
+        context.transition!(state: :reply_ipv6)
       end
     end
-    
-    parse(exactly: 10) do |s|
-      _version, reply, _reserved, address_type, address, port = s.slice!(0,10).unpack('CCCCNn')
+  end
+
+  state(:reply_ipv4) do
+    parser(exactly: 10) do |context, s|
+      _version, reply, address_type, address, port = s.unpack('CCxCNn')
     
       [
         reply,
@@ -123,28 +89,59 @@ class Mua::SOCKS5::Client::Interpreter < Mua::Interpreter
       ]
     end
   
-    interpret(0) do
-      enter_state(:connected)
+    interpret(0) do |context, _meta|
+      # 0 = Succeeded
+      context.transition!(state: :connected)
     end
     
-    default do |reply|
-      @reply = reply
+    default do |context, reply|
+      context.reply_code = "SOCKS_ERR#{reply}"
 
-      enter_state(:failed)
+      context.close!
+      context.parent_transition!(state: :proxy_failed)
     end
   end
-  
-  state :authentication do
-    enter do
-      delegate.debug_notification(:proxy, "Sending proxy authentication")
 
-      proxy_options = delegate.options[:proxy]
-      username = proxy_options[:username]
-      password = proxy_options[:password]
+  state(:reply_hostname) do
+    # ... parser() needs to take a dynamic argument to implement this
+  end
 
-      send_data(
+  state(:reply_ipv6) do
+    parser(exactly: 22) do |context, s|
+      _version, reply, address_type, address, port = s.slice!(0,10).unpack('CCxCA16n')
+    
+      [
+        reply,
+        {
+          address: address,
+          port: port,
+          address_type: address_type
+        }
+      ]
+    end
+
+    interpret(0) do |context, _meta|
+      # 0 = Succeeded
+      context.transition!(state: :connected)
+    end
+    
+    default do |context, reply|
+      context.reply_code = "SOCKS_ERR#{reply}"
+
+      context.close!
+      context.parent_transition!(state: :proxy_failed)
+    end
+  end
+
+  state(:authentication) do
+    enter do |context|
+      proxy_options = context.options[:proxy]
+      username = context.proxy_username
+      password = context.proxy_password
+
+      write(
         [
-          SOCKS5_VERSION,
+          Mua::Constants::SOCKS5_VERSION,
           username.length,
           username,
           password.length,
@@ -153,46 +150,12 @@ class Mua::SOCKS5::Client::Interpreter < Mua::Interpreter
       )
     end
     
-    parse do |s|
+    parser do |context, s|
+      # ...??
     end
     
-    interpret(0) do
-      enter_state(:connected)
+    interpret(0) do |context|
+      context.parent_transition!(state: :proxy_connected)
     end
-  end
-  
-  state :connected do
-    enter do
-      delegate_call(:after_proxy_connected)
-    end
-  end
-  
-  state :failed do
-    enter do
-      if (@error_message)
-        delegate.debug_notification(:error, @error_message)
-        delegate.error_notification("SOCKS5", @error_message)
-      else
-        message = "Proxy server returned error code #{@reply}: #{SOCKS5_REPLY[@reply]}"
-        delegate.debug_notification(:error, message)
-        delegate.error_notification("SOCKS5_#{@reply}", message)
-      end
-      delegate.connect_notification(false, message)
-      delegate.close_connection
-    end
-    
-    terminate
-  end
-
-  # == Class Methods ========================================================
-
-  # == Instance Methods =====================================================
-  
-  def label
-    'SOCKS5'
-  end
-
-  def finished?
-    self.state == :connected
   end
 end

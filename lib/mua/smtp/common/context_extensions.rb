@@ -19,6 +19,14 @@ module Mua
           self.read_task = nil
           @state_target = nil
         end
+
+        def read_exactly(exactly, unpack: nil)
+          if (unpack)
+            self.input.read_exactly(exactly).unpack(unpack)
+          else
+            self.input.read_exactly(exactly)
+          end
+        end
         
         def write(data)
           self.input.write(data)
@@ -26,6 +34,39 @@ module Mua
       
         def reply(*lines)
           self.input.puts(*lines, separator: Mua::Constants::CRLF)
+        end
+
+        def packreply(format, *data)
+          self.input.write(data.pack(format))
+          self.input.flush
+        end
+
+        def close!
+          self.input.close
+        end
+
+        def assign_remote_ip!
+          io = self.input.io
+
+          case (io.remote_address.afamily)
+          when Socket::AF_INET
+            self.remote_ip, self.remote_port = io.remote_address.ip_unpack
+          when Socket::AF_UNIX
+            self.remote_ip = 'localhost'
+            self.remote_port = nil
+          end
+        end
+
+        def assign_local_ip!
+          io = self.input.io
+
+          case (io.remote_address.afamily)
+          when Socket::AF_INET
+            self.local_ip, self.local_port = io.local_address.ip_unpack
+          when Socket::AF_UNIX
+            self.local_ip = 'localhost'
+            self.local_port = nil
+          end
         end
       end
     end

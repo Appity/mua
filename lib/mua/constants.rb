@@ -43,7 +43,7 @@ module Mua::Constants
   
   SOCKS5_ADDRESS_TYPE = {
     ipv4: 1,
-    domainname: 3,
+    fqdn: 3,
     ipv6: 4
   }.freeze
 end

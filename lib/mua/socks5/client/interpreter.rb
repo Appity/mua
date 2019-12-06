@@ -1,9 +1,13 @@
 require_relative '../../constants'
 
+# RFC1928: https://tools.ietf.org/html/rfc1928
+
 Mua::SOCKS5::Client::Interpreter = Mua::Interpreter.define do
-  state(:initialized) do
+  state(:initialize) do
     enter do |context|
-      socks_methods = [ ]
+      socks_methods = [
+        Mua::Constants::SOCKS5_METHOD[:no_auth]
+      ]
       
       if (context.proxy_username)
         socks_methods << Mua::Constants::SOCKS5_METHOD[:username_password]
@@ -13,62 +17,67 @@ Mua::SOCKS5::Client::Interpreter = Mua::Interpreter.define do
 
       context.debug_notification(:proxy, "Initiating proxy connection through #{context.proxy_host}:#{context.proxy_port}")
 
-      context.write(
-        [
-          Mua::Constants::SOCKS5_VERSION,
-          socks_methods.length,
-          socks_methods
-        ].flatten.pack('CCC*')
+      context.packreply(
+        'CCC*',
+        Mua::Constants::SOCKS5_VERSION,
+        socks_methods.length,
+        *socks_methods
       )
     end
     
-    parser(exactly: 2) do |context, bytes|
-      _version, method = bytes.slice!(0,2).unpack('CC')
+    parser(exactly: 2, unpack: 'CC')
     
-      method
+    interpret(Mua::Constants::SOCKS5_VERSION) do |context, auth_method|
+      case (auth_method)
+      when Mua::Constants::SOCKS5_METHOD[:username_password]
+        context.transition!(state: :authentication)
+      else
+        context.transition!(state: :request)
+      end
     end
-    
-    interpret(Mua::Constants::SOCKS5_METHOD[:username_password]) do |context|
-      context.transition!(state: :authentication)
-    end
-    
-    default do |context|
-      context.transition!(state: :request)
+
+    default do |context, _reply|
+      # Some kind of error, so abandon connection.
+      context.reply_code = 'SOCKS_ERR_PROTOCOL_VERSION'
+      context.parent_transition!(state: :proxy_failed)
     end
   end
   
   state(:request) do
     enter do |context|
-      case (context.smtp_host_address_type)
+      case (context.smtp_host_addr_type)
       when :ipv4
-        context.write([
+        context.packreply(
+          'CCxCA4n',
           Mua::Constants::SOCKS5_VERSION,
           Mua::Constants::SOCKS5_COMMAND[:connect],
           Mua::Constants::SOCKS5_ADDRESS_TYPE[:ipv4],
-          Socket.sockaddr_in(0, context.smtp_host)[4, 4],
+          IPAddr.new(context.smtp_host).hton,
           context.smtp_port
-        ].pack('CCxCSn'))
+        )
 
         context.transition!(state: :reply_ipv4)
       when :fqdn
-        context.write([
+        context.packreply(
+          'CCxCCA*n',
           Mua::Constants::SOCKS5_VERSION,
           Mua::Constants::SOCKS5_COMMAND[:connect],
-          Mua::Constants::SOCKS5_ADDRESS_TYPE[:domainname],
+          Mua::Constants::SOCKS5_ADDRESS_TYPE[:fqdn],
           context.smtp_host.length,
           context.smtp_host,
           context.smtp_port
-        ].pack('CCxCCA*dn'))
+        )
 
-        context.transition!(state: :reply_hostname)
+        context.transition!(state: :reply_fqdn)
       when :ipv6
-        context.write([
+        context.packreply(
+          'CCxCA16n',
           Mua::Constants::SOCKS5_VERSION,
           SOCKS5_COMMAND[:connect],
           SOCKS5_ADDRESS_TYPE[:ipv6],
-          Socket.sockaddr_in(0, context.smtp_host)[8, 16],
+          IPAddr.new(context.smtp_host).hton,
           context.smtp_port
-        ].pack('CCxCA16n'))
+        )
 
         context.transition!(state: :reply_ipv6)
       end
@@ -76,22 +85,20 @@ Mua::SOCKS5::Client::Interpreter = Mua::Interpreter.define do
   end
 
   state(:reply_ipv4) do
-    parser(exactly: 10) do |context, s|
-      _version, reply, address_type, address, port = s.unpack('CCxCNn')
-    
+    parser(exactly: 10, unpack: 'CCxCA4n') do |context, _version, reply, addr_type, addr, port|
       [
         reply,
         {
-          address: address,
+          addr: IPAddr.ntop(addr),
           port: port,
-          address_type: address_type
+          addr_type: addr_type
         }
       ]
     end
   
     interpret(0) do |context, _meta|
       # 0 = Succeeded
-      context.transition!(state: :connected)
+      context.transition!(state: :proxy_connected)
     end
     
     default do |context, reply|
@@ -102,27 +109,36 @@ Mua::SOCKS5::Client::Interpreter = Mua::Interpreter.define do
     end
   end
 
-  state(:reply_hostname) do
-    # ... parser() needs to take a dynamic argument to implement this
-  end
+  state(:reply_fqdn) do
+    parser(exactly: 22, unpack: 'CCxCC') do |context, _version, reply, addr_type, addr_len|
+      addr = context.read_exactly(addr_len)
 
-  state(:reply_ipv6) do
-    parser(exactly: 22) do |context, s|
-      _version, reply, address_type, address, port = s.slice!(0,10).unpack('CCxCA16n')
-    
       [
         reply,
         {
-          address: address,
+          addr: addr,
           port: port,
-          address_type: address_type
+          addr_type: addr_type
+        }
+      ]
+    end
+  end
+
+  state(:reply_ipv6) do
+    parser(exactly: 22, unpack: 'CCxCA16n') do |context, _version, reply, addr_type, addr, port|
+      [
+        reply,
+        {
+          addr: IPAddr.ntop(addr),
+          port: port,
+          addr_type: addr_type
         }
       ]
     end
 
     interpret(0) do |context, _meta|
       # 0 = Succeeded
-      context.transition!(state: :connected)
+      context.parent_transition!(state: :proxy_connected)
     end
     
     default do |context, reply|
@@ -139,14 +155,13 @@ Mua::SOCKS5::Client::Interpreter = Mua::Interpreter.define do
       username = context.proxy_username
       password = context.proxy_password
 
-      write(
-        [
-          Mua::Constants::SOCKS5_VERSION,
-          username.length,
-          username,
-          password.length,
-          password
-        ].pack('CCA*CA*')
+      context.packreply(
+        'CCA*CA*',
+        Mua::Constants::SOCKS5_VERSION,
+        username.length,
+        username,
+        password.length,
+        password
       )
     end
     
@@ -155,7 +170,7 @@ Mua::SOCKS5::Client::Interpreter = Mua::Interpreter.define do
     end
     
     interpret(0) do |context|
-      context.parent_transition!(state: :proxy_connected)
+      context.transition!(state: :request)
     end
   end
 end

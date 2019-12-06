@@ -49,7 +49,9 @@ class Mua::SMTP::Server
 
         @interpreter.new(
           Async::IO::Stream.new(peer)
-        ).run.select do |_c, _s, event, *args|
+        ) do |interpreter|
+          interpreter.context.assign_remote_ip!
+        end.run.select do |_c, _s, event, *args|
           EVENTS_PROPAGATED.include?(event)
         end.each do |e|
           yield(e) if (block_given?)

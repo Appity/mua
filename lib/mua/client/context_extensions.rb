@@ -36,10 +36,6 @@ module Mua::Client::ContextExtensions
     self.message_queue.any?
   end
 
-  def close!
-    self.input.close
-  end
-
   def quit!
     self.close_requested!
     self.force_transition!(state: :quit, from: :ready)

@@ -1,3 +1,5 @@
+require_relative 'token'
+
 class Mua::State
   # == Constants ============================================================
 
@@ -148,7 +150,7 @@ class Mua::State
             context.read
           end
         
-        redo if (branch == Mua::Parser::Redo)
+        redo if (branch == Mua::Token::Redo)
 
         [ branch, args ]
       end

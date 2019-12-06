@@ -1,5 +1,6 @@
 require_relative 'context'
 require_relative '../../constants'
+require_relative '../../token'
 
 Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
   name: 'Mua::SMTP::Server::Interpreter',
@@ -9,20 +10,6 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
 
   state(:initialize) do
     enter do |context|
-      io = context.input.io
-
-      case (io.remote_address.afamily)
-      when Socket::AF_INET
-        context.remote_ip, context.remote_port = io.remote_address.ip_unpack
-        context.local_ip, context.local_port = io.local_address.ip_unpack
-      when Socket::AF_UNIX
-        context.remote_ip = 'localhost'
-        context.remote_port = nil
-
-        context.local_ip = 'localhost'
-        context.local_port = nil
-      end
-
       context.reply(context.banner)
 
       context.event!(self, :connected)
@@ -200,7 +187,7 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
     end
   end
 
-  interpret(Mua::Parser::Timeout) do |context|
+  interpret(Mua::Token::Timeout) do |context|
     context.transition!(state: :timeout)
   end
 

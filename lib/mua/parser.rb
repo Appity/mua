@@ -1,16 +1,9 @@
 require_relative './token'
 
 module Mua::Parser
-  # == Classes ==============================================================
-  
-  Redo = Mua::Token.new('Redo')
-    # Used to indicate a parsing pass should be repeated.
-  
-  Timeout = Mua::Token.new('Timeout')
-
   # == Module Methods =======================================================
 
-  def self.read_stream(line: false, chomp: true, exactly: nil, partial: nil, match: nil, separator: $/, &block)
+  def self.read_stream(line: false, chomp: true, exactly: nil, partial: nil, match: nil, separator: $/, unpack: nil, &block)
     if (line)
       if (block)
         -> (context) do
@@ -19,7 +12,7 @@ module Mua::Parser
           block.call(context, context.input.gets(separator, chomp: chomp))
 
         rescue Async::TimeoutError
-          block.call(Timeout)
+          block.call(Mua::Token::Timeout)
         end
       else
         -> (context) do
@@ -28,7 +21,7 @@ module Mua::Parser
           context.input.gets(separator, chomp: chomp)
 
         rescue Async::TimeoutError
-          Timeout
+          Mua::Token::Timeout
         end
       end
     elsif (match)
@@ -39,7 +32,7 @@ module Mua::Parser
           block.call(context, context.input.read_until(match, chomp: chomp))
 
         rescue Async::TimeoutError
-          block.call(Timeout)
+          block.call(Mua::Token::Timeout)
         end
       else
         -> (context) do
@@ -48,49 +41,49 @@ module Mua::Parser
           context.input.read_until(match, chomp: chomp)
 
         rescue Async::TimeoutError
-          Timeout
+          Mua::Token::Timeout
         end
       end
     elsif (exactly)
-      if (block)
-        -> (context) do
-          return if (context.input.eof?)
-
-          block.call(context, context.input.read_exactly(exactly))
-
-        rescue Async::TimeoutError
-          block.call(Timeout)
+      if (unpack)
+        if (block)
+          -> (context) do
+            return if (context.input.eof?)
+  
+            block.call(context, *context.input.read_exactly(exactly).unpack(unpack))
+  
+          rescue Async::TimeoutError
+            block.call(Mua::Token::Timeout)
+          end
+        else
+          -> (context) do
+            return if (context.input.eof?)
+  
+            context.input.read_exactly(exactly).unpack(unpack)
+  
+          rescue Async::TimeoutError
+            Mua::Token::Timeout
+          end
         end
       else
-        -> (context) do
-          return if (context.input.eof?)
-
-          context.input.read_exactly(exactly)
-
-        rescue Async::TimeoutError
-          Timeout
-        end
-      end
-    elsif (partial)
-      # REFACTOR: Determine which of partial and exactly are best suited
-      # https://github.com/socketry/async-io/blob/master/lib/async/io/stream.rb
-      if (block)
-        -> (context) do
-          return if (context.input.eof?)
-
-          block.call(context, context.input.read_exactly(partial))
-
-        rescue Async::TimeoutError
-          block.call(Timeout)
-        end
-      else
-        -> (context) do
-          return if (context.input.eof?)
-
-          context.input.read_exactly(partial)
-
-        rescue Async::TimeoutError
-          Timeout
+        if (block)
+          -> (context) do
+            return if (context.input.eof?)
+  
+            block.call(context, context.input.read_exactly(exactly))
+  
+          rescue Async::TimeoutError
+            block.call(Mua::Token::Timeout)
+          end
+        else
+          -> (context) do
+            return if (context.input.eof?)
+  
+            context.input.read_exactly(exactly)
+  
+          rescue Async::TimeoutError
+            Mua::Token::Timeout
+          end
         end
       end
     elsif (block)

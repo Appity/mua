@@ -30,6 +30,9 @@ RSpec.describe Mua::SMTP::Server::Interpreter, type: [ :interpreter, :reactor ],
 
       it(script['name'] || File.basename(path, '.yml').gsub('-', ' '), dynamic: true, **tags) do
         with_interpreter(ServerInterpreter) do |context, io|
+          context.assign_remote_ip!
+          context.assign_local_ip!
+          
           io.run_dialog(self, script)
         end
       end

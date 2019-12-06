@@ -1,6 +1,7 @@
 require 'async/io/stream'
 require_relative '../attr_boolean'
 require_relative '../constants'
+require_relative '../token'
 
 class Mua::State::Context
   # == Constants ============================================================
@@ -43,6 +44,10 @@ class Mua::State::Context
     Mua::State::FINAL_DEFAULT
   end
 
+  def async(&block)
+    @reactor.async(&block)
+  end
+
   # Reads an element out of the provided input array. Subclasses can redefine
   # this behavior to match the type of input object used.
   def read
@@ -61,7 +66,7 @@ class Mua::State::Context
   end
 
   def parser_redo!
-    Mua::Parser::Redo
+    Mua::Token::Redo
   end
 
   # Emits a state transition

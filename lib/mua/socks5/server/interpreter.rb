@@ -71,8 +71,8 @@ Mua::SOCKS5::Server::Interpreter = Mua::Interpreter.define(
       when 0x03
         context.target_addr_type = :fqdn
 
-        target_len = context.read_exactly(1, unpack: 'C')
-        target_addr, target_port = context.read_exactly(6, unpack: 'A%dn' % target_len)
+        target_len = context.read_exactly(1, unpack: 'C')[0]
+        target_addr, target_port = context.read_exactly(target_len + 2, unpack: 'A%dn' % target_len)
 
         context.target_addr = target_addr
         context.target_port = target_port
@@ -106,32 +106,64 @@ Mua::SOCKS5::Server::Interpreter = Mua::Interpreter.define(
 
   state(:connect) do
     enter do |context|
+      socks_mode = true
+
       context.target_connect! do |stream, task|
         context.write_proxy_reply(0)
+        socks_mode = false
 
         [
           task.async do
             loop do
               stream.io.wait_readable
+              context.input.io.wait_writable
               context.input.io.write(stream.io.read_nonblock(512) || break)
             end
+          rescue Async::Wrapper::Cancelled
+            # Abandon loop
           end,
           task.async do
             loop do
               context.input.io.wait_readable
+              stream.io.wait_writable
               stream.io.write(context.input.io.read_nonblock(512) || break)
             end
+          rescue Async::Wrapper::Cancelled
+            # Abandon loop
           end
         ].each(&:wait)
+
+      rescue Errno::EPIPE, Errno::ECONNRESET, Errno::ECONNREFUSED, IOError
+        # Normal networking errors
+      ensure
+        stream.io.close
       end
-      
-      context.reactor.print_hierarchy
+
+    rescue Errno::ECONNREFUSED
+      socks_mode and context.write_proxy_reply(0x05) # Connection refused
+    rescue Errno::ECONNRESET
+      socks_mode and context.write_proxy_reply(0x05) # Connection refused
+    rescue Mua::SOCKS5::Server::UnknownHost
+      socks_mode and context.write_proxy_reply(0x04) # Host unreachable
+    ensure
+      context.input.io.close
     end
   end
 
   interpret(Mua::Token::Timeout) do |context|
     context.transition!(state: :timeout)
   end
+
+  # FIX: Implement rescue_from
+  # interpret(Errno::EPIPE) do |context|
+  #   context.io.close
+  #   context.transition!(state: :finished)
+  # end
+
+  # interpret(Errno::ECONNRESET) do |context|
+  #   context.io.close
+  #   context.transition!(state: :finished)
+  # end
 
   state(:timeout) do
     enter do |context|

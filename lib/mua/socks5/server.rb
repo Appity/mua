@@ -24,6 +24,14 @@ class Mua::SOCKS5::Server
   InvalidCommand = Mua::Token.new('InvalidCommand')
   InvalidAddressType = Mua::Token.new('InvalidAddressType')
 
+  # == Exceptions ===========================================================
+
+  class UnknownHost < Mua::Error
+  end
+
+  class ConnectionFailed < Mua::Error
+  end
+
   # == Extensions ===========================================================
   
   # == Properties ===========================================================

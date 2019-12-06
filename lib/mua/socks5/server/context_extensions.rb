@@ -67,5 +67,13 @@ module Mua::SOCKS5::Server::ContextExtensions
         end.wait
       end
     end
+
+  rescue SocketError => e
+    case (e.to_s)
+    when /\Agetaddrinfo/
+      raise Mua::SOCKS5::Server::UnknownHost
+    else
+      raise e
+    end
   end
 end

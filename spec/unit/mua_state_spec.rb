@@ -6,6 +6,7 @@ RSpec.describe Mua::State do
     expect(state.enter).to eq([ ])
     expect(state.leave).to eq([ ])
     expect(state.interpret).to eq([ ])
+    expect(state.rescue_from).to eq([ ])
     expect(state.default).to be(nil)
 
     expect(state).to be_prepared
@@ -86,6 +87,8 @@ RSpec.describe Mua::State do
   it 'can have handlers populated manually', focus: true do
     ran = [ ]
 
+    test_exception = Class.new(Mua::Error)
+
     state = Mua::State.new do |s|
       s.parser = -> (context) {
         ran << :parser
@@ -94,14 +97,15 @@ RSpec.describe Mua::State do
       }
       s.enter << -> (context) { ran << :enter }
       s.leave << -> (context) { ran << :leave }
-      s.interpret << [ 'example', -> (context) { ran << :example } ]
+      s.interpret << [ 'example', -> (context) { ran << :example; raise test_exception } ]
+      s.rescue_from << [ test_exception, -> (context, exception) { ran << :exception } ]
       s.default = -> (context, branch) { ran << :default }
     end
 
     context = Mua::State::Context.new(input: [ :example ])
     state.run!(context)
 
-    expect(ran).to eq([ :enter, :parser, :example, :leave ])
+    expect(ran).to eq([ :enter, :parser, :example, :exception, :leave ])
 
     ran.clear
     context.input = [ :not_example ]
@@ -116,7 +120,7 @@ RSpec.describe Mua::State do
     it 'based on simple string input' do
       state = Mua::State.new do |s|
         s.parser = -> (context) do
-          context.read&.to_s&.upcase
+          context.input.shift&.to_s&.upcase
         end
 
         s.interpret << [
@@ -189,7 +193,11 @@ RSpec.describe Mua::State do
   end
 
   context 'supports nested states' do
-    TrackingContext = Mua::State::Context.define(visited: -> { [ ] })
+    TrackingContext = Mua::State::Context.define(visited: -> { [ ] }) do
+      def read
+        self.input.shift
+      end
+    end
 
     it 'hands off correctly to an inner State' do
       substate = Mua::State.new do |s|
@@ -344,6 +352,32 @@ RSpec.describe Mua::State do
       'about',
       'an interpreter'
     ])
+  end
+
+  it 'can capture exceptions generated in the parser' do
+    custom_exception = Class.new(Exception)
+
+    state = Mua::State.define do
+      parser do |context|
+        raise custom_exception
+      end
+
+      rescue_from(custom_exception) do |context, exception|
+        context.exception_captured = exception
+      end
+
+      leave do |context|
+        context.transition!(state: :finished)
+      end
+    end
+
+    context = Mua::State::Context.define(
+      :exception_captured
+    ).new
+
+    expect { state.run!(context) }.to_not raise_exception(custom_exception)
+
+    expect(context.exception_captured).to be_kind_of(custom_exception)
   end
 
   context 'define()' do

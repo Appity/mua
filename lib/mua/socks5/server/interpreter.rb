@@ -154,16 +154,28 @@ Mua::SOCKS5::Server::Interpreter = Mua::Interpreter.define(
     context.transition!(state: :timeout)
   end
 
-  # FIX: Implement rescue_from
-  # interpret(Errno::EPIPE) do |context|
-  #   context.io.close
-  #   context.transition!(state: :finished)
-  # end
+  rescue_from(IOError) do |context|
+    context.transition!(state: :connection_error)
+  end
 
-  # interpret(Errno::ECONNRESET) do |context|
-  #   context.io.close
-  #   context.transition!(state: :finished)
-  # end
+  rescue_from(Errno::EPIPE) do |context|
+    context.transition!(state: :connection_error)
+  end
+
+  rescue_from(Errno::ECONNRESET) do |context|
+    context.transition!(state: :connection_error)
+  end
+
+  rescue_from(Errno::ECONNREFUSED) do |context|
+    context.transition!(state: :connection_error)
+  end
+
+  state(:connection_error) do
+    enter do |context|
+      context.io.close
+      context.transition!(state: :finished)
+    end
+  end
 
   state(:timeout) do
     enter do |context|

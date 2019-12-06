@@ -1,7 +1,7 @@
 RSpec.describe Mua::State::Compiler do
   context 'dispatcher()' do
     it 'can create a Proc based on an empty spec' do
-      compiled = Mua::State::Compiler.dispatcher([ ])
+      compiled = Mua::State::Compiler.dispatcher(interpreters: [ ])
 
       expect(compiled).to be_kind_of(Proc)
 
@@ -11,7 +11,7 @@ RSpec.describe Mua::State::Compiler do
     end
 
     it 'can create a Proc with branches' do
-      compiled = Mua::State::Compiler.dispatcher([
+      compiled = Mua::State::Compiler.dispatcher(interpreters: [
         [ :a, -> (context) { context.visited = :a } ],
         [ :b, -> (context) { context.visited = :b } ]
       ])
@@ -30,11 +30,11 @@ RSpec.describe Mua::State::Compiler do
 
     it 'can create a Proc with branches and a default' do
       compiled = Mua::State::Compiler.dispatcher(
-        [
+        interpreters: [
           [ :a, -> (context) { context.visited = :a } ],
           [ :b, -> (context) { context.visited = :b } ]
         ],
-        -> (context, visited) { context.visited = { defaulted: visited } }
+        default: -> (context, visited) { context.visited = { defaulted: visited } }
       )
 
       context = Mua::State::Context.define(:visited).new
@@ -50,8 +50,8 @@ RSpec.describe Mua::State::Compiler do
     end
     it 'can create a Proc with only a default' do
       compiled = Mua::State::Compiler.dispatcher(
-        [ ],
-        -> (context, visited) { context.visited = { defaulted: visited } }
+        interpreters: [ ],
+        default: -> (context, visited) { context.visited = { defaulted: visited } }
       )
   
       context = Mua::State::Context.define(:visited).new

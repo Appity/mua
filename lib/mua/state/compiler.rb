@@ -2,7 +2,7 @@ module Mua::State::Compiler
   # == Module Methods =======================================================
 
   # Creates a dispatch Proc that will branch to the appropriate handler
-  def self.dispatcher(interpreters, default = nil)
+  def self.dispatcher(interpreters: [ ], rescue_from: [ ], default: nil)
     # REFACTOR: This should do a quick check on the blocks to ensure they take
     #           the required number of arguments.
     b = binding
@@ -48,12 +48,33 @@ module Mua::State::Compiler
         end,
         *(
           if (default)
-            [ 'else', 'default.call(context, branch, *args)' ]
+            [
+              'else',
+              'default.call(context, branch, *args)'
+            ]
           else
             [ ]
           end
         ),
         'end',
+        *(
+          rescue_from.flat_map.with_index do |(exception, proc), i|
+            mvar = :"__exception_handler_#{i}"
+            b.local_variable_set(mvar, proc)
+
+            unless (exception.is_a?(Exception) and exception.name)
+              evar = :"__exception_#{i}"
+              b.local_variable_set(evar, exception)
+
+              exception = evar
+            end
+
+            [
+              'rescue %s => e' % exception,
+              '%s.call(context, e)' % mvar
+            ]
+          end
+        ),
         'rescue ArgumentError => e',
         'raise ArgumentError, "branch for input #{branch.inspect} has handler with #{e}"',
         'end'

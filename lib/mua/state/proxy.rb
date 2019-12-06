@@ -41,6 +41,10 @@ class Mua::State::Proxy
     @state.interpret << [ response, proc ]
   end
 
+  def rescue_from(exception, &proc)
+    @state.rescue_from << [ exception, proc ]
+  end
+
   # Defines a new state for a Mua::State::Machine
   def state(name, &block)
     Mua::State.new(name: name, parent: @state, prepare: false) do |state|

@@ -50,7 +50,7 @@ class Mua::State::Context
 
   # Reads an element out of the provided input array. Subclasses can redefine
   # this behavior to match the type of input object used.
-  def read
+  def input_read
     case (input)
     when IO, Async::IO::Stream
       @input.read

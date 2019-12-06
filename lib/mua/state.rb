@@ -18,6 +18,7 @@ class Mua::State
   attr_reader :enter
   attr_reader :leave
   attr_reader :interpret
+  attr_reader :rescue_from
 
   attr_reader :interpreter
   attr_reader :dispatcher
@@ -45,6 +46,7 @@ class Mua::State
     @leave = [ ]
     @default = nil
     @interpret = [ ]
+    @rescue_from = [ ]
 
     @prepared = false
 
@@ -63,14 +65,18 @@ class Mua::State
     @interpret.freeze
 
     @dispatcher = Mua::State::Compiler.dispatcher(
-      @interpret,
-      @default
+      interpreters: @interpret,
+      rescue_from: @rescue_from,
+      default: @default
     )
 
     @interpreter = Mua::State::Compiler.dispatcher(
-      self.interpreter_branches,
-      @default
+      interpreters: self.interpreter_branches,
+      rescue_from: @rescue_from,
+      default: @default
     )
+
+    @exception_handlers = @rescue_from.to_h
 
     @prepared = true
 
@@ -133,6 +139,12 @@ class Mua::State
       if (context.terminated? or !@parent)
         events << [ context, self, :terminate ]
       end
+    rescue Exception => e
+      if (handler = @exception_handlers[e.class])
+        handler.call(context, e)
+      else
+        raise e
+      end
     end
   end
   alias_method :call, :run
@@ -146,7 +158,7 @@ class Mua::State
         branch, *args =
           if (@parser)
             @parser.call(context)
-          else
+          elsif (context.respond_to?(:read))
             context.read
           end
         

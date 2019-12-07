@@ -6,7 +6,7 @@ class Mua::State::Transition
   # == Properties ===========================================================
 
   attr_reader :state
-  attr_reader :parent
+  attr_accessor :parent
  
   # == Class Methods ========================================================
   

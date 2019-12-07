@@ -289,7 +289,7 @@ RSpec.describe Mua::State::Machine do
         state(:inner_a) do
           enter do |context|
             context.visited << :inner_a
-            context.transition!(state: :inner_b)
+            context.local_transition!(state: :inner_b)
           end
         end
 

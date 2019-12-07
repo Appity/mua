@@ -108,27 +108,27 @@ class Mua::State
     Enumerator.new do |events|
       context.events = events
       terminated = false
+      transition = nil
 
       events << [ context, self, :enter ]
-
-      run = true
 
       case (result = self.trigger(context, @enter))
       when Mua::State::Transition
         # When a state transition occurs in the enter call, skip processing.
         context.state = result.state
 
-        unless (result.parent === false)
-          run = false
-        end
+        transition = result
       end
 
-      if (run)
+      unless (transition)
         case (result = @preprocess&.call(context))
         when Mua::State::Transition
           context.state = result.state
         else
-          self.run_interior(context)
+          case (iresult = self.run_interior(context))
+          when Mua::State::Transition
+            transition = iresult
+          end
         end
       end
 
@@ -139,6 +139,11 @@ class Mua::State
       if (context.terminated? or !@parent)
         events << [ context, self, :terminate ]
       end
+
+      if (transition&.parent)
+        events << transition
+      end
+
     rescue Exception => e
       if (handler = @exception_handlers[e.class])
         handler.call(context, e)
@@ -177,7 +182,7 @@ class Mua::State
       when Mua::State::Transition
         context.state = branch.state
 
-        break unless (branch.parent === false)
+        break branch unless (branch.parent === false)
 
         branch = branch.state
       when nil
@@ -191,14 +196,14 @@ class Mua::State
         when Mua::State::Transition
           context.state = result.state
 
-          break unless (result.parent === false)
+          break result unless (result.parent === false)
         when Enumerator
           result.each do |event|
             case (event)
             when Mua::State::Transition
               context.state = event.state
 
-              break unless (event.parent === false)
+              break event unless (event.parent === false)
             else
               events << event
             end

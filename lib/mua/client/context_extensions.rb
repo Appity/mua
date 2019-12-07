@@ -1,7 +1,7 @@
 require 'resolv'
 
 module Mua::Client::ContextExtensions
-  def smtp_host_address_type
+  def smtp_host_addr_type
     case (self.smtp_host)
     when nil
       nil
@@ -16,6 +16,14 @@ module Mua::Client::ContextExtensions
 
   def auth_required?
     !!(self.smtp_username or self.smtp_password)
+  end
+
+  def smtp_addr
+    if (smtp_port)
+      '%s:%d' % [ smtp_host, smtp_port ]
+    else
+      smtp_host
+    end
   end
 
   def proxy?

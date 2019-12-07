@@ -1,8 +1,13 @@
 require_relative '../../constants'
 
+require_relative '../../client/context'
+
 # RFC1928: https://tools.ietf.org/html/rfc1928
 
-Mua::SOCKS5::Client::Interpreter = Mua::Interpreter.define do
+Mua::SOCKS5::Client::Interpreter = Mua::Interpreter.define(
+  name: 'Mua::SOCKS5::Client::Interpreter',
+  context: Mua::Client::Context
+) do
   state(:initialize) do
     enter do |context|
       socks_methods = [
@@ -80,6 +85,8 @@ Mua::SOCKS5::Client::Interpreter = Mua::Interpreter.define do
         )
 
         context.transition!(state: :reply_ipv6)
+      else
+        raise "Unknown address type: %s" % context.smtp_host_addr_type.inspect
       end
     end
   end
@@ -98,7 +105,7 @@ Mua::SOCKS5::Client::Interpreter = Mua::Interpreter.define do
   
     interpret(0) do |context, _meta|
       # 0 = Succeeded
-      context.transition!(state: :proxy_connected)
+      context.parent_transition!(state: :proxy_connected)
     end
     
     default do |context, reply|

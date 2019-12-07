@@ -35,8 +35,8 @@ class Mua::State::Machine < Mua::State
       yield(self) if (block_given?)
 
       @default ||= -> (context, state, *_args) do
-        raise InvalidStateError, 'Invalid state %s' % state.inspect
-      end  
+        raise InvalidStateError, 'Invalid state %s in %s' % [ state.inspect, name || self.class ]
+      end
     end
   end
   
@@ -57,21 +57,25 @@ class Mua::State::Machine < Mua::State
       case (result = @dispatcher.call(context, context.state))
       when Mua::State::Transition
         context.state = result.state
-
         events << [ context, self, :transition, context.state ]
 
-        break if (event.parent)
+        return result unless (result.parent === false )
       when Enumerator
-        result.each do |event|
+        result.each do |event, *args|
           case (event)
           when Mua::State::Transition
             context.state = event.state
-
             events << [ context, self, :transition, context.state ]
 
-            break if (event.parent)
+            # Events propagate up one level if parent is set to anything
+            # other than false. In that case the false flag must be set to
+            # avoid bubbling up too far.
+            unless (event.parent === false)
+              event.parent = false
+              return event
+            end
           else
-            events << event
+            events << [ event, *args ]
           end
         end
       end

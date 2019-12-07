@@ -3,6 +3,7 @@ require_relative '../state'
 require_relative '../smtp/common/context_extensions'
 
 Mua::Client::Context = Mua::State::Context.define(
+  :remote_host,
   :smtp_host,
   :smtp_port,
   :smtp_username,
@@ -11,7 +12,6 @@ Mua::Client::Context = Mua::State::Context.define(
   :proxy_password,
   :proxy_host,
   :proxy_port,
-  :remote_host,
   :read_task,
   :reply_code,
   :reply_message,

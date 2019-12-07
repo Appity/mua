@@ -117,8 +117,10 @@ Mua::SOCKS5::Server::Interpreter = Mua::Interpreter.define(
             loop do
               stream.io.wait_readable
               context.input.io.wait_writable
-              context.input.io.write(stream.io.read_nonblock(512) || break)
+              context.input.io.write(stream.io.read_nonblock(1024) || break)
             end
+          rescue Errno::EPIPE, Errno::ECONNRESET, Errno::ECONNREFUSED, IOError
+            # Normal networking errors
           rescue Async::Wrapper::Cancelled
             # Abandon loop
           end,
@@ -126,8 +128,10 @@ Mua::SOCKS5::Server::Interpreter = Mua::Interpreter.define(
             loop do
               context.input.io.wait_readable
               stream.io.wait_writable
-              stream.io.write(context.input.io.read_nonblock(512) || break)
+              stream.io.write(context.input.io.read_nonblock(1024)  || break)
             end
+          rescue Errno::EPIPE, Errno::ECONNRESET, Errno::ECONNREFUSED, Errno::ETIMEDOUT, IOError
+            # Normal networking errors
           rescue Async::Wrapper::Cancelled
             # Abandon loop
           end
@@ -139,12 +143,14 @@ Mua::SOCKS5::Server::Interpreter = Mua::Interpreter.define(
         stream.io.close
       end
 
+    rescue Mua::SOCKS5::Server::UnknownHost
+      socks_mode and context.write_proxy_reply(0x04) # Host unreachable
     rescue Errno::ECONNREFUSED
       socks_mode and context.write_proxy_reply(0x05) # Connection refused
     rescue Errno::ECONNRESET
       socks_mode and context.write_proxy_reply(0x05) # Connection refused
-    rescue Mua::SOCKS5::Server::UnknownHost
-      socks_mode and context.write_proxy_reply(0x04) # Host unreachable
+    rescue Errno::ETIMEDOUT
+      socks_mode and context.write_proxy_reply(0x06) # Connection refused
     ensure
       context.input.io.close
     end

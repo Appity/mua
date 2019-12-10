@@ -6,9 +6,10 @@ require_relative '../../client/context'
 
 Mua::SOCKS5::Client::Interpreter = Mua::Interpreter.define(
   name: 'Mua::SOCKS5::Client::Interpreter',
-  context: Mua::Client::Context
+  context: Mua::Client::Context,
+  initial_state: :proxy_connect
 ) do
-  state(:initialize) do
+  state(:proxy_connect) do
     enter do |context|
       socks_methods = [
         Mua::Constants::SOCKS5_METHOD[:no_auth]

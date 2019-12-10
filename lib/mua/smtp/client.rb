@@ -30,7 +30,7 @@ class Mua::SMTP::Client
       @endpoint.connect do |peer|
         @context.input = Async::IO::Stream.new(peer)
 
-        @interpreter = Mua::SMTP::Client::Interpreter.new(@context)
+        @interpreter = Mua::SMTP::Client::ProxyAwareInterpreter.new(@context)
 
         @interpreter.run!(&block)
       end
@@ -49,4 +49,5 @@ end
 require_relative '../client'
 
 require_relative 'client/interpreter'
+require_relative 'client/proxy_aware_interpreter'
 require_relative 'client/support'

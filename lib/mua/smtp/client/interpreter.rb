@@ -4,7 +4,8 @@ require_relative 'support'
 
 Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
   name: 'Mua::SMTP::Client::Interpreter',
-  context: Mua::Client::Context
+  context: Mua::Client::Context,
+  initial_state: :smtp_connect
 ) do
   parser do |context|
     context.read_line do |line|
@@ -24,7 +25,7 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
     end
   end
 
-  state(:initialize) do
+  state(:smtp_connect) do
     enter do |context|
       context.transition!(state: :greeting)
     end

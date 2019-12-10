@@ -117,7 +117,9 @@ class Mua::State
         # When a state transition occurs in the enter call, skip processing.
         context.state = result.state
 
-        transition = result
+        unless (result.parent === false)
+          transition = result
+        end
       end
 
       unless (transition)

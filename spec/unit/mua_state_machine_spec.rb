@@ -289,14 +289,14 @@ RSpec.describe Mua::State::Machine do
         state(:inner_a) do
           enter do |context|
             context.visited << :inner_a
-            context.local_transition!(state: :inner_b)
+            context.parent_transition!(state: :inner_b)
           end
         end
 
         state(:inner_b) do
           enter do |context|
             context.visited << :inner_a
-            context.transition!(state: :outer)
+            context.parent_transition!(state: :outer)
           end
         end
       end

@@ -11,7 +11,10 @@ RSpec.describe Mua::SMTP::Client::Interpreter, type: [ :interpreter, :reactor ],
   it 'defines a context type' do
     expect(ClientInterpreter.context).to be(ClientContext)
 
-    expect(ClientInterpreter.new(nil).context).to be_kind_of(ClientContext)
+    context = ClientInterpreter.new(nil).context
+
+    expect(context).to be_kind_of(ClientContext)
+    expect(context.state).to eq(:smtp_connect)
   end
 
   it 'defines a state machine' do
@@ -26,6 +29,7 @@ RSpec.describe Mua::SMTP::Client::Interpreter, type: [ :interpreter, :reactor ],
 
   it 'supports standard SMTP connections' do
     with_interpreter(ClientInterpreter) do |context, io|
+      expect(context.state).to eq(:smtp_connect)
       io.puts('220 mail.example.com SMTP Example')
       expect(io.gets).to eq('HELO localhost')
 

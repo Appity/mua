@@ -9,6 +9,12 @@ Mua::SOCKS5::Client::Interpreter = Mua::Interpreter.define(
   context: Mua::Client::Context,
   initial_state: :proxy_connect
 ) do
+  state(:initialize) do
+    enter do |context|
+      context.transition!(state: :proxy_connect)
+    end
+  end
+
   state(:proxy_connect) do
     enter do |context|
       socks_methods = [

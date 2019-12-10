@@ -37,14 +37,17 @@ class Mua::Interpreter
   # == Instance Methods =====================================================
   
   def initialize(input)
+    @machine = self.class.machine
     @context =
       case (input)
       when Mua::State::Context
         input
       else
-        self.class.context.new(input: input)
+        self.class.context.new(
+          input: input,
+          state: @machine.initial_state
+        )
       end
-    @machine = self.class.machine
 
     yield(self) if (block_given?)
   end

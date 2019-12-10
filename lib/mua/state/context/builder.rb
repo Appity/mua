@@ -137,6 +137,10 @@ module Mua::State::Context::Builder
     type.send(:define_method, :initialize) do |reactor: nil, state: nil, input: nil, **args|
       super(reactor: reactor, state: state, input: input)
 
+      if (initial_state = args[:state])
+        @state = initial_state
+      end
+
       attrs.each do |name, meta|
         if (args.key?(name))
           instance_variable_set(meta[:variable], args[name])

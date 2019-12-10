@@ -25,6 +25,12 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
     end
   end
 
+  state(:initialize) do
+    enter do |context|
+      context.transition!(state: :smtp_connect)
+    end
+  end
+
   state(:smtp_connect) do
     enter do |context|
       context.transition!(state: :greeting)

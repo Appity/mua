@@ -26,7 +26,10 @@ module SimulateExchange
         end
       end
 
-      @context = interpreter_type.context.new(input: @cio)
+      @context = interpreter_type.context.new(
+        input: @cio,
+        state: interpreter_type.machine.initial_state
+      )
 
       @test_task = reactor.async do |task|
         block.call(@context, self, task)

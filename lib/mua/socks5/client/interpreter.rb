@@ -118,8 +118,9 @@ Mua::SOCKS5::Client::Interpreter = Mua::Interpreter.define(
   end
 
   state(:reply_fqdn) do
-    parser(exactly: 22, unpack: 'CCxCC') do |context, _version, reply, addr_type, addr_len|
+    parser(exactly: 5, unpack: 'CCxCC') do |context, _version, reply, addr_type, addr_len|
       addr = context.read_exactly(addr_len)
+      port = context.read_exactly(2, unpack: 'C')
 
       [
         reply,
@@ -129,6 +130,18 @@ Mua::SOCKS5::Client::Interpreter = Mua::Interpreter.define(
           addr_type: addr_type
         }
       ]
+    end
+
+    interpret(0) do |context, _meta|
+      # 0 = Succeeded
+      context.parent_transition!(state: :proxy_connected)
+    end
+    
+    default do |context, reply|
+      context.reply_code = "SOCKS_ERR#{reply}"
+
+      context.close!
+      context.parent_transition!(state: :proxy_failed)
     end
   end
 

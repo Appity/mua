@@ -24,7 +24,12 @@ class Mua::SMTP::Client
   def initialize(**options, &block)
     @reactor = options[:reactor]
     @context = Mua::Client::Context.new(DEFAULTS.merge(options))
-    @endpoint = Async::IO::Endpoint.tcp(@context.smtp_host, @context.smtp_port)
+    @endpoint =
+      if (@context.proxy?)
+        Async::IO::Endpoint.tcp(@context.proxy_host, @context.proxy_port)
+      else
+        Async::IO::Endpoint.tcp(@context.smtp_host, @context.smtp_port)
+      end
 
     @task = @reactor.async do |task|
       @endpoint.connect do |peer|

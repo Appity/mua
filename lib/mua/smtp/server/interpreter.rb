@@ -204,6 +204,8 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
 
   state(:finished) do
     enter do |context|
+      context.close!
+
       context.event!(self, :disconnected)
     end
   end
@@ -213,6 +215,10 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
   end
 
   rescue_from(Errno::ECONNRESET) do |context|
+    context.transition!(state: :finished)
+  end
+
+  rescue_from(IOError) do |context|
     context.transition!(state: :finished)
   end
 end

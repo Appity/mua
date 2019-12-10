@@ -341,7 +341,7 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
   
   state(:terminated) do
     enter do |context|
-      # context.close
+      context.parent_transition!(state: :smtp_finished)
     end
   end
   

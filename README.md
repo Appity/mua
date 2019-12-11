@@ -13,15 +13,20 @@ gem 'mua'
 
 And then execute:
 
-    $ bundle
+```shell
+bundle install
+```
 
 Or install it yourself as:
 
-    $ gem install mua
+```shell
+gem install mua
+```
 
 ## Usage
 
-It's not usable yet. Maybe soon?
+There's a number of examples in `bin/` as well as demonstration of the various
+features in `spec/unit/`.
 
 ## Development
 

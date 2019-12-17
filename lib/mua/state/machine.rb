@@ -19,16 +19,10 @@ class Mua::State::Machine < Mua::State
 
   # == Class Methods ========================================================
 
-  def self.define(name: nil, **options, &block)
-    new(name: name, **options) do |state|
-      Mua::State::Proxy.new(state, &block)
-    end
-  end
-
   # == Instance Methods =====================================================
 
-  def initialize(name: nil, parent: nil, initial_state: nil, final_state: nil)
-    super(name: name, parent: parent) do
+  def initialize(name: nil, parent: nil, initial_state: nil, final_state: nil, auto_terminate: true)
+    super(name: name, parent: parent, auto_terminate: auto_terminate) do
       @initial_state = initial_state || Mua::State::INITIAL_DEFAULT
       @final_state = final_state || Mua::State::FINAL_DEFAULT
 
@@ -48,6 +42,8 @@ class Mua::State::Machine < Mua::State
     events = context.events
     
     loop do
+      transition = nil
+
       unless (context.state)
         context.terminated!
 
@@ -56,21 +52,28 @@ class Mua::State::Machine < Mua::State
 
       case (result = @dispatcher.call(context, context.state))
       when Mua::State::Transition
-        context.state = result.state
+        transition = result
+
+        context.state = transition.state
         events << [ context, self, :transition, context.state ]
 
-        return result unless (result.parent === false )
+        return result unless (result.parent === false)
       when Enumerator
         result.each do |event, *args|
           case (event)
           when Mua::State::Transition
-            context.state = event.state
+            if (transition)
+              raise "Emitted a double transition during state processing."
+            end
+
+            transition = event
+            context.state = transition.state
             events << [ context, self, :transition, context.state ]
 
             # Events propagate up one level if parent is set to anything
             # other than false. In that case the false flag must be set to
             # avoid bubbling up too far.
-            unless (event.parent === false)
+            if (event.parent === true)
               event.parent = false
               return event
             end
@@ -80,7 +83,7 @@ class Mua::State::Machine < Mua::State
         end
       end
 
-      break if (context.terminated?)
+      break if (context.terminated? or !transition)
     end
   end
 
@@ -105,7 +108,7 @@ protected
       @interpret << [
         _final_state,
         Mua::State.define(name: _final_state, parent: self) do
-          enter do |context|
+          leave do |context|
             context.terminated!
           end
         end

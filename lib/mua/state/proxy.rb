@@ -46,16 +46,20 @@ class Mua::State::Proxy
   end
 
   # Defines a new state for a Mua::State::Machine
-  def state(name, interpreter = nil, &block)
+  def state(name, interpreter = nil, terminal: false, &block)
     if (interpreter)
       @state.interpret << [ name, interpreter.machine ]
     else
-      Mua::State.new(name: name, parent: @state, prepare: false) do |state|
+      Mua::State.new(name: name, parent: @state, prepare: false, auto_terminate: @state.auto_terminate?) do |state|
         state.parser = @state.parser
 
         Mua::State::Proxy.new(state, &block)
 
         @state.interpret << [ name, state ]
+
+        if (terminal)
+          state.leave << -> (context) { context.terminated! }
+        end
       end
     end
   end

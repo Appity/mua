@@ -27,8 +27,8 @@ class Mua::State
 
   # == Class Methods ========================================================
 
-  def self.define(name: nil, parent: nil, &block)
-    new(name: name, parent: parent) do |state|
+  def self.define(name: nil, parent: nil, auto_terminate: true, **options, &block)
+    new(name: name, parent: parent, auto_terminate: auto_terminate, **options) do |state|
       Mua::State::Proxy.new(state, &block)
     end
   end
@@ -36,7 +36,7 @@ class Mua::State
   # == Instance Methods =====================================================
   
   # Creates a new state.
-  def initialize(name: nil, parent: nil, prepare: true)
+  def initialize(name: nil, parent: nil, prepare: true, auto_terminate: true)
     @name = name
     @parent = parent
 
@@ -49,6 +49,7 @@ class Mua::State
     @rescue_from = [ ]
 
     @prepared = false
+    @auto_terminate = !!auto_terminate
 
     yield(self) if (block_given?)
 
@@ -86,7 +87,11 @@ class Mua::State
 
     self.after_prepare
 
-    self
+    self.freeze
+  end
+
+  def auto_terminate?
+    @auto_terminate
   end
 
   def prepared?
@@ -138,11 +143,11 @@ class Mua::State
 
       self.trigger(context, @leave)
 
-      if (context.terminated? or !@parent)
+      if (context.terminated? or (!@parent and @auto_terminate))
         events << [ context, self, :terminate ]
       end
 
-      if (transition&.parent)
+      unless (!transition or transition.parent === false)
         events << transition
       end
 
@@ -170,8 +175,6 @@ class Mua::State
           end
         
         redo if (branch == Mua::Token::Redo)
-
-        [ branch, args ]
       end
 
       if (branch)
@@ -186,10 +189,9 @@ class Mua::State
 
         break branch unless (branch.parent === false)
 
-        branch = branch.state
+        branch = context.state
       when nil
-        context.terminated!
-
+        context.terminated! if (self.auto_terminate?)
         break
       end
 
@@ -213,12 +215,12 @@ class Mua::State
         end
       end
 
-      case (input = context.input)
-      when Array
-        break if (input.empty?)
-      else
-        break if (input.nil?)
-      end
+      # case (input = context.input)
+      # when Array
+      #   break if (input.empty?)
+      # else
+      #   break if (input.nil?)
+      # end
 
       break if (context.terminated?)
     end

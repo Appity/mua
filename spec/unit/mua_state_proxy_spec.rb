@@ -65,4 +65,49 @@ RSpec.describe Mua::State::Proxy do
     expect(substate).to be_kind_of(Mua::State)
     expect(substate.parent).to be(parent)
   end
+
+  it 'can define one or more terminal states' do
+    machine = Mua::State::Machine.new(
+      name: 'TerminalTest',
+      auto_terminate: false
+    ) do |machine|
+      proxy = Mua::State::Proxy.new(machine)
+
+      proxy.parser do |context|
+        context.input.shift
+      end
+
+      proxy.state(:initialize) do
+        interpret(:a) do |context|
+          context.transition!(state: :a)
+        end
+
+        interpret(:b) do |context|
+          context.transition!(state: :b)
+        end
+      end
+
+      proxy.state(:a, terminal: true)
+      proxy.state(:b)
+    end
+
+    expect(machine).to be_kind_of(Mua::State::Machine)
+    expect(machine).to_not be_auto_terminate
+
+    context = Mua::State::Context.new(input: [ :a ])
+
+    machine.run(context).each do |context, state, *ev|
+      # p(state: state.name, ev: ev)
+    end
+
+    expect(context.state).to eq(:a)
+    expect(context).to be_terminated
+
+    context = Mua::State::Context.new(input: [ :b ])
+
+    machine.run!(context)
+
+    expect(context.state).to eq(:b)
+    expect(context).to_not be_terminated
+  end
 end

@@ -215,13 +215,6 @@ class Mua::State
         end
       end
 
-      # case (input = context.input)
-      # when Array
-      #   break if (input.empty?)
-      # else
-      #   break if (input.nil?)
-      # end
-
       break if (context.terminated?)
     end
   end

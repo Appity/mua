@@ -17,8 +17,8 @@ RSpec.describe Mua::State::Machine do
 
     context = Mua::State::Context.new(state: :initialize)
 
-    initialize_state = machine.states[:initialize]
-    finished_state = machine.states[:finished]
+    initialize = machine.states[:initialize]
+    finished = machine.states[:finished]
 
     events = StateEventsHelper.map_locals do
       machine.run!(context)
@@ -26,11 +26,12 @@ RSpec.describe Mua::State::Machine do
 
     expect(events).to eq([
       [ :context, :machine, :enter ],
-      [ :context, :initialize_state, :enter],
-      [ :context, :initialize_state, :leave ],
-      [ :context, :finished_state, :enter ],
-      [ :context, :finished_state, :leave ],
-      [ :context, :finished_state, :terminate ],
+      [ :context, :initialize, :enter],
+      [ :context, :initialize, :leave ],
+      [ :context, :machine, :transition, :finished ],
+      [ :context, :finished, :enter ],
+      [ :context, :finished, :leave ],
+      [ :context, :finished, :terminate ],
       [ :context, :machine, :leave ],
       [ :context, :machine, :terminate ]
     ])
@@ -205,10 +206,13 @@ RSpec.describe Mua::State::Machine do
       [ :context, :machine, :enter ],
       [ :context, :initialize, :enter ],
       [ :context, :initialize, :leave ],
+      [ :context, :machine, :transition, :a ],
       [ :context, :state_a, :enter ],
       [ :context, :state_a, :leave ],
+      [ :context, :machine, :transition, :b ],
       [ :context, :state_b, :enter ],
       [ :context, :state_b, :leave ],
+      [ :context, :machine, :transition, :finished ],
       [ :context, :finished, :enter ],
       [ :context, :finished, :leave ],
       [ :context, :finished, :terminate ],

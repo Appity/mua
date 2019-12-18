@@ -95,6 +95,7 @@ RSpec.describe Mua::State do
 
         context.input.shift&.to_s
       }
+      
       s.enter << -> (context) { ran << :enter }
       s.leave << -> (context) { ran << :leave }
       s.interpret << [ 'example', -> (context) { ran << :example; raise test_exception } ]
@@ -105,7 +106,7 @@ RSpec.describe Mua::State do
     context = Mua::State::Context.new(input: [ :example ])
     state.run!(context)
 
-    expect(ran).to eq([ :enter, :parser, :example, :exception, :leave ])
+    expect(ran).to eq([ :enter, :parser, :example, :exception, :parser, :leave ])
 
     ran.clear
     context.input = [ :not_example ]
@@ -147,7 +148,6 @@ RSpec.describe Mua::State do
       end
 
       expect(context.branch).to eq(:primary)
-      expect(context).to_not be_terminated
 
       expect(events).to eq([
         [ :context, :state, :enter ],
@@ -155,6 +155,8 @@ RSpec.describe Mua::State do
         [ :context, :state, :leave ],
         [ :context, :state, :terminate ]
       ])
+
+      expect(context).to be_terminated
 
       context = ContextWithBranch.new(input: [ :secondary ])
 
@@ -322,6 +324,8 @@ RSpec.describe Mua::State do
 
       parser do |context|
         case (input = context.input.shift)
+        when nil
+          context.transition!(state: :finished)
         when 'a', 'an', 'the'
           context.buffer << input
           context.parser_redo!

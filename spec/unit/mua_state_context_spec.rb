@@ -10,7 +10,6 @@ RSpec.describe Mua::State::Context, type: :reactor do
   end
 
   it 'has a constructor that accepts a block for customization' do
-    p reactor
     context = Mua::State::Context.new(input: :default, state: :none) do |c|
       c.reactor = reactor
       c.input = 'demo'

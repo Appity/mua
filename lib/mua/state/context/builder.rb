@@ -1,6 +1,11 @@
 module Mua::State::Context::Builder
   # == Module Methods =======================================================
 
+  # attr_list defines attributes with default behavior (read/write)
+  # attr_spec can include options for each attribute:
+  # * boolean: Generates x? interrogation method
+  # * readonly: Omits generating mutator method
+  # * convert: Conversion function to apply when writing
   def self.class_with_attributes(attr_list, attr_spec)
     type = Class.new(Mua::State::Context)
 
@@ -22,7 +27,7 @@ module Mua::State::Context::Builder
       elsif (attr_value[:readonly])
         define_readonly_attribute!(type, attr_name, var)
       else
-        define_readwrite_attribute!(type, attr_name, var)
+        define_readwrite_attribute!(type, attr_name, var, attr_value[:convert])
       end
 
       [ attr_name, attr_value ]
@@ -120,15 +125,21 @@ module Mua::State::Context::Builder
     end
   end
 
-  def self.define_readwrite_attribute!(type, attr_name, var)
-    if (:"@#{attr_name}" == var)
+  def self.define_readwrite_attribute!(type, attr_name, var, convert_fn = nil)
+    if (:"@#{attr_name}" == var and !convert_fn)
       type.send(:attr_accessor, attr_name)
     else
       type.send(:define_method, attr_name) do
         instance_variable_get(var)
       end
-      type.send(:define_method, :"#{attr_name}=") do |v|
-        instance_variable_set(var, v)
+      if (convert_fn)
+        type.send(:define_method, :"#{attr_name}=") do |v|
+          instance_variable_set(var, convert_fn[v])
+        end
+      else
+        type.send(:define_method, :"#{attr_name}=") do |v|
+          instance_variable_set(var, v)
+        end
       end
     end
   end
@@ -143,7 +154,10 @@ module Mua::State::Context::Builder
 
       attrs.each do |name, meta|
         if (args.key?(name))
-          instance_variable_set(meta[:variable], args[name])
+          instance_variable_set(
+            meta[:variable],
+            meta[:convert] ? meta[:convert][args[name]] : args[name]
+          )
         else
           instance_variable_set(
             meta[:variable],

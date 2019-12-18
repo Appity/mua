@@ -1,3 +1,5 @@
+require 'date'
+
 RSpec.describe Mua::State::Context::Builder do
   describe 'remap_attrs()' do
     it 'normalizes list vs. hash arguments' do
@@ -182,6 +184,18 @@ RSpec.describe Mua::State::Context::Builder do
       context = built.new
 
       expect(context).to be_customized
+    end
+
+    it 'can convert input values' do
+      built = Mua::State::Context::Builder.class_with_attributes([ ], {
+        as_date: {
+          convert: -> (date) { Date.parse(date) }
+        }
+      })
+
+      context = built.new(as_date: '2020-01-01')
+
+      expect(context.as_date).to eq(Date.parse('2020-01-01'))
     end
   end
 end

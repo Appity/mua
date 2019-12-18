@@ -325,7 +325,7 @@ RSpec.describe Mua::State do
       parser do |context|
         case (input = context.input.shift)
         when nil
-          context.transition!(state: :finished)
+          context.finished!
         when 'a', 'an', 'the'
           context.buffer << input
           context.parser_redo!

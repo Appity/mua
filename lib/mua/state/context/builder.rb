@@ -6,8 +6,8 @@ module Mua::State::Context::Builder
   # * boolean: Generates x? interrogation method
   # * readonly: Omits generating mutator method
   # * convert: Conversion function to apply when writing
-  def self.class_with_attributes(attr_list, attr_spec)
-    type = Class.new(Mua::State::Context)
+  def self.class_with_attributes(attr_list, attr_spec, base_class = Mua::State::Context)
+    type = Class.new(base_class)
 
     if (initial_state = attr_spec.delete(:initial_state))
       define_initial_state!(type, initial_state)
@@ -19,21 +19,29 @@ module Mua::State::Context::Builder
 
     includes = attr_spec.delete(:includes)
 
-    attrs = remap_attrs(attr_list, attr_spec).map do |attr_name, attr_value|
-      var = attr_value[:variable]
+    attrs = base_class.attr_map.merge(
+      remap_attrs(attr_list, attr_spec).map do |attr_name, attr_value|
+        var = attr_value[:variable]
 
-      if (attr_value[:boolean])
-        define_boolean_attribute!(type, attr_name, var)
-      elsif (attr_value[:readonly])
-        define_readonly_attribute!(type, attr_name, var)
-      else
-        define_readwrite_attribute!(type, attr_name, var, attr_value[:convert])
-      end
+        if (attr_value[:boolean])
+          define_boolean_attribute!(type, attr_name, var)
+        elsif (attr_value[:readonly])
+          define_readonly_attribute!(type, attr_name, var)
+        else
+          define_readwrite_attribute!(type, attr_name, var, attr_value[:convert])
+        end
 
-      [ attr_name, attr_value ]
-    end
+        [ attr_name, attr_value ]
+      end.to_h
+    )
 
     define_initialize!(type, attrs)
+
+    type.class_eval do
+      define_method(:attr_map) do
+        attrs
+      end
+    end
 
     case (includes)
     when Array

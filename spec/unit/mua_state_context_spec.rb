@@ -118,6 +118,22 @@ RSpec.describe Mua::State::Context, type: :reactor do
       expect(context_type).to be_kind_of(Class)
     end
 
+    it 'returns a class that can be subclassed' do
+      derived = context_type.define(
+        extra_attribute: true
+      )
+
+      expect(derived).to be_kind_of(Class)
+
+      context = derived.new
+
+      expect(context.nil_value).to be(nil)
+      expect(context.fixed_value).to be(true)
+      expect(context.with_proc).to eq([ ])
+      expect(context.with_customization).to be(nil)
+      expect(context.extra_attribute).to be(true)
+    end
+
     it 'creates instances with default values' do
       context = context_type.new
 

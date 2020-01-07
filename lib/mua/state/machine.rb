@@ -38,7 +38,7 @@ class Mua::State::Machine < Mua::State
     @states.key?(state)
   end
 
-  def run_interior(context)
+  def run_interior(context, step: false)
     events = context.events
     
     loop do
@@ -83,7 +83,7 @@ class Mua::State::Machine < Mua::State
         end
       end
 
-      break if (context.terminated? or !transition)
+      break if (step or context.terminated? or !transition)
     end
   end
 

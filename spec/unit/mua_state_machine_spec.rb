@@ -115,10 +115,67 @@ RSpec.describe Mua::State::Machine do
 
       expect(machine.states.keys).to eq([ :initialize, *(0..count).to_a, :finished ])
 
-      events = machine.run!(Mua::State::Context.new)
+      machine.run!(Mua::State::Context.new)
 
       expect(entered).to eq((0...count).to_a)
     end
+
+    it 'can step through one state at a time' do
+      count = 12
+      entered = [ ]
+
+      machine = Mua::State::Machine.define do
+        state(:initialize) do
+          enter do |context|
+            context.transition!(state: 0)
+          end
+        end
+
+        count.times do |i|
+          state(i) do
+            enter do |context|
+              entered << i
+              context.transition!(state: i + 1)
+            end
+          end
+        end
+
+        state(count) do
+          enter do |context|
+            entered << count
+            context.transition!(state: :finished)
+          end
+        end
+
+        state(:finished) do
+          enter do |context|
+            entered << :finished
+            context.terminated!
+          end
+        end
+      end
+
+      context = Mua::State::Context.new
+
+      count.times do |i|
+        machine.run!(context, step: true)
+
+        expect(entered).to eq((0...i).to_a)
+      end
+
+      expect(context.state).to eq(count - 1)
+
+      machine.run!(context, step: true)
+      expect(context.state).to eq(count)
+
+      machine.run!(context, step: true)
+      expect(context.state).to eq(:finished)
+
+      machine.run!(context, step: true)
+      expect(context).to be_terminated
+
+      expect(entered).to eq((0..count).to_a + [ :finished ])
+  end
 
     it 'with a custom initial state' do
       entered = false

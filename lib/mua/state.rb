@@ -104,11 +104,11 @@ class Mua::State
     end
   end
 
-  def run!(context)
-    self.run(context).to_a
+  def run!(context, step: false)
+    self.run(context, step: step).to_a
   end
 
-  def run(context)
+  def run(context, step: false)
     # REFACTOR: This needs to be something the Compiler can generate
     Enumerator.new do |events|
       context.events = events
@@ -132,7 +132,7 @@ class Mua::State
         when Mua::State::Transition
           context.state = result.state
         else
-          case (iresult = self.run_interior(context))
+          case (iresult = self.run_interior(context, step: step))
           when Mua::State::Transition
             transition = iresult
           end
@@ -161,7 +161,7 @@ class Mua::State
   end
   alias_method :call, :run
 
-  def run_interior(context)
+  def run_interior(context, step: false)
     # REFACTOR: This needs to be something the Compiler can generate
     events = context.events
 
@@ -215,7 +215,7 @@ class Mua::State
         end
       end
 
-      break if (context.terminated?)
+      break if (step or context.terminated?)
     end
   end
 

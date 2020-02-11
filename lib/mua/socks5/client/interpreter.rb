@@ -103,7 +103,7 @@ Mua::SOCKS5::Client::Interpreter = Mua::Interpreter.define(
       [
         reply,
         {
-          addr: IPAddr.ntop(addr),
+          addr: addr.bytesize == 4 ? IPAddr.ntop(addr) : nil,
           port: port,
           addr_type: addr_type
         }

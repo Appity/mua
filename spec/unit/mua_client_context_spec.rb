@@ -27,7 +27,7 @@ RSpec.describe Mua::Client::Context, type: :reactor do
     expect(context).to_not be_tls_required
     expect(context).to_not be_proxy
     expect(context.timeout).to be(Mua::Constants::TIMEOUT_DEFAULT)
-    expect(context.message_queue).to eq([ ])
+    expect(context.delivery_queue).to eq([ ])
     expect(context.message).to be(nil)
     expect(context).to_not be_close_requested
   end
@@ -60,7 +60,7 @@ RSpec.describe Mua::Client::Context, type: :reactor do
     context.tls_requested = false
     context.tls_required!
     context.timeout = 999
-    context.message_queue << message
+    context.delivery_queue << message
     context.message = message
     context.close_requested!
 
@@ -86,7 +86,7 @@ RSpec.describe Mua::Client::Context, type: :reactor do
     expect(context).to be_tls_required
     expect(context).to be_proxy
     expect(context.timeout).to eq(999)
-    expect(context.message_queue).to eq([ message ])
+    expect(context.delivery_queue).to eq([ message ])
     expect(context.message).to be(message)
     expect(context).to be_close_requested
   end
@@ -101,7 +101,8 @@ RSpec.describe Mua::Client::Context, type: :reactor do
       )
 
       context.deliver!(message)
-      expect(context.message_queue).to eq([ message ])
+
+      expect(context.delivery_queue.map(&:message)).to eq([ message ])
     end
   end
 end

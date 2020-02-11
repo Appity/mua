@@ -31,17 +31,38 @@ module Mua::Client::ContextExtensions
   end
 
   def deliver!(message)
-    self.message_queue << message
+    delivery = Mua::Client::Delivery.new(message)
+
+    self.delivery_queue << delivery
 
     self.force_transition!(state: :deliver, from: :ready)
+
+    delivery
   end
 
-  def message_pop
-    self.message = self.message_queue.shift
+  def delivery_pop
+    # REFACTOR: Replace with Async::Queue?
+    self.delivery = self.delivery_queue.shift
+    self.message = self.delivery&.message
   end
 
-  def message_queued?
-    self.message_queue.any?
+  def delivery_resolve!(**args)
+    return unless (self.delivery)
+
+    self.delivery.resolve(
+      Mua::Client::DeliveryResult.new(**{
+        message: self.message,
+        proxy_host: self.proxy_host,
+        proxy_port: self.proxy_port,
+        target_host: self.smtp_host,
+        target_port: self.smtp_port,
+        delivered: false
+      }.merge(args))
+    )
+  end
+
+  def delivery_queued?
+    self.delivery_queue.any?
   end
 
   def quit!

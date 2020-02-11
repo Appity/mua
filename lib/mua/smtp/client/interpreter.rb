@@ -171,7 +171,7 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
   
   state(:ready) do
     enter do |context|
-      if (context.message_queued?)
+      if (context.delivery_queued?)
         context.transition!(state: :deliver)
       elsif (context.close_requested?)
         context.transition!(state: :quit)
@@ -181,12 +181,14 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
     interpret(400..499) do |context|
       # Messages like this might indicate a connection time-out, not an
       # actual error.
+
+      # FIX: Handle somehow, reject in-flight deliveries?
     end
   end
   
   state(:deliver) do
     enter do |context|
-      if (context.message_pop)
+      if (context.delivery_pop)
         context.transition!(state: :mail_from)
       end
     end
@@ -226,6 +228,13 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
 
     rescue StopIteration
       context.message_callback(false, "Message has no recipients")
+
+      context.delivery_resolve!(
+        result_code: 'MAIL_NO_RECIPIENTS',
+        result_message: 'Message has no recipients',
+        delivered: false
+      )
+
       context.transition!(state: :reset)
     end
     
@@ -244,9 +253,15 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
       context.transition!(state: :data)
     end
     
-    interpret(500..599) do |context, reply_code, _reply_messages|
+    interpret(500..599) do |context, reply_code, reply_messages|
       if (context.message.test?)
         message.status = :test_failed
+
+        context.delivery_resolve!(
+          result_code: reply_code,
+          result_message: reply_messages.join(' '),
+          delivered: false
+        )
       end
 
       context.transition!(state: :reset)
@@ -295,6 +310,12 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
           :failed
         end
 
+      context.delivery_resolve!(
+        result_code: reply_code,
+        result_message: reply_messages.join(' '),
+        delivered: context.message.state == :delivered
+      )
+  
       context.transition!(state: :sent)
     end
   end

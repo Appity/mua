@@ -41,8 +41,11 @@ Mua::Client::Context = Mua::State::Context.define(
   timeout: {
     default: Mua::Constants::TIMEOUT_DEFAULT
   },
-  message_queue: {
+  delivery_queue: {
     default: -> { [ ] }
+  },
+  delivery: {
+    default: nil
   },
   message: {
     default: nil

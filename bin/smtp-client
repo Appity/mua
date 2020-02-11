@@ -81,11 +81,11 @@ end
 # TODO: Add Async::IO::Trap.new(:INT)
 #       per https://github.com/socketry/async-io/blob/master/examples/echo/server.rb
 
-deliveries = [ ]
+messages = [ ]
 
 args.each do |path|
   samples(path, shuffle: options[:shuffle], limit: options[:limit], recursive: options[:recursive]) do |f|
-    deliveries << {
+    messages << {
       name: f.delete_prefix(Dir.pwd + '/'),
       data: File.read(f).gsub(/\r?\n/, "\r\n")
     }
@@ -94,7 +94,7 @@ end
 
 if (options[:fork])
   (options[:fork] - 1).times do |f|
-    break unless fork
+    break unless (fork)
   end
 end
 
@@ -109,7 +109,7 @@ Async do |reactor|
     puts('%s> %s' % [ context.remote_addr, event ])
   end
 
-  deliveries.each do |delivery|
+  deliveries = messages.map do |message|
     if (options[:verbose])
       puts delivery[:name]
     end
@@ -117,10 +117,19 @@ Async do |reactor|
     client.deliver!(
       mail_from: 'test@pistachio.email',
       rcpt_to: 'test@pistachio.email',
-      data: delivery[:data]
+      data: message[:data]
     )
+  end
 
-    client.quit!
+  client.quit!
+
+  deliveries.map!(&:wait)
+
+  deliveries.group_by(&:delivered?).each do |delivered, list|
+    puts '%5.1f%% %s' % [
+      list.length * 100.0 / deliveries.length,
+      delivered ? 'Delivered' : 'Not Delivered'
+    ]
   end
 end
 
@@ -128,9 +137,9 @@ if (options[:stopwatch])
   delta = Time.now - start
 
   puts('Sent %d message(s) in %.1fs at %.1fMPS (%.1fMB/s)' % [
-    deliveries.length,
+    messages.length,
     delta,
-    deliveries.length / delta,
-    deliveries.map { |d| d[:data].bytesize }.sum / delta / 1024**2
+    messages.length / delta,
+    messages.map { |d| d[:data].bytesize }.sum / delta / 1024**2
   ])
 end

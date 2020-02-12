@@ -150,11 +150,11 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
       if (accept)
         accept, message = context.receive_transaction(context.message)
 
-        context.event!(self, :deliver_accept, message)
+        context.event!(self, :deliver_accept, context.message, message)
         
         context.reply(message)
       else
-        context.event!(self, :deliver_reject, message)
+        context.event!(self, :deliver_reject, context.message, message)
 
         context.reply(message)
       end
@@ -166,13 +166,14 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
     
     default do |context, line|
       # RFC5321 4.5.2 - Leading dot is removed if line has content
-      context.message.data << (line.sub(/\A\./, '') << Mua::Constants::CRLF)
+      context.message.data << line.delete_prefix('.') << Mua::Constants::CRLF
     end
   end
   
   state(:auth_plain) do
     # Receive a single line of authentication
-    # ...
+
+    # TODO: Add authentication hook
   end
   
   state(:reply) do

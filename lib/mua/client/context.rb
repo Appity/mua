@@ -15,6 +15,7 @@ Mua::Client::Context = Mua::State::Context.define(
   :read_task,
   :reply_code,
   :reply_message,
+  :exception,
   reply_buffer: {
     default: -> { [ ] }
   },

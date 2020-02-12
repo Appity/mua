@@ -5,6 +5,8 @@ module Mua
     module Common
       module ContextExtensions
         def read_line
+          # REFACTOR: There's probably a better way to handle this than
+          #           by creating a task per readline operation.
           self.read_task = self.reactor.async do
             if (line = self.input.gets)
               yield(line.chomp)

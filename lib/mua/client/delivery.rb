@@ -24,6 +24,6 @@ class Mua::Client::Delivery
   end
 
   def wait
-    @signal.wait
+    @result or @signal.wait
   end
 end

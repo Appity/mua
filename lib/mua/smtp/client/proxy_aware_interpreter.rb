@@ -7,10 +7,15 @@ Mua::SMTP::Client::ProxyAwareInterpreter = Mua::Interpreter.define(
 ) do
   state(:initialize) do
     enter do |context|
-      if (context.proxy?)
-        context.transition!(state: :proxy_connect)
+      if (context.exception)
+        # Before the interpreter can kick off an exception may have occurred
+        context.transition!(state: :terminated)
       else
-        context.transition!(state: :smtp_connect)
+        if (context.proxy?)
+          context.transition!(state: :proxy_connect)
+        else
+          context.transition!(state: :smtp_connect)
+        end
       end
     end
   end
@@ -40,6 +45,12 @@ Mua::SMTP::Client::ProxyAwareInterpreter = Mua::Interpreter.define(
   state(:finished) do
     enter do |context|
       context.close!
+    end
+  end
+
+  state(:terminated) do
+    enter do |context|
+      context.terminated!
     end
   end
 end

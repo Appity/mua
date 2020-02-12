@@ -14,6 +14,10 @@ module Mua::Client::ContextExtensions
     end
   end
 
+  def connected?
+    !!self.input
+  end
+
   def auth_required?
     !!(self.smtp_username or self.smtp_password)
   end
@@ -33,9 +37,24 @@ module Mua::Client::ContextExtensions
   def deliver!(message)
     delivery = Mua::Client::Delivery.new(message)
 
-    self.delivery_queue << delivery
+    if (self.connected?)
+      self.delivery_queue << delivery
 
-    self.force_transition!(state: :deliver, from: :ready)
+      self.force_transition!(state: :deliver, from: :ready)
+    else
+      delivery.resolve(
+        Mua::Client::DeliveryResult.new(
+          message: message,
+          result_code: 'CONN_FAIL',
+          result_message: 'Connection failed.',
+          proxy_host: self.proxy_host,
+          proxy_port: self.proxy_port,
+          target_host: self.smtp_host,
+          target_port: self.smtp_port,
+          delivered: false
+        )
+      )
+    end
 
     delivery
   end
@@ -61,12 +80,31 @@ module Mua::Client::ContextExtensions
     )
   end
 
+  def delivery_queued_fail!(**args)
+    [ self.delivery ].concat(self.delivery_queue).compact.each do |delivery|
+      delivery.resolve(
+        Mua::Client::DeliveryResult.new(**{
+          message: delivery.message,
+          proxy_host: self.proxy_host,
+          proxy_port: self.proxy_port,
+          target_host: self.smtp_host,
+          target_port: self.smtp_port,
+          delivered: false
+        }.merge(args))
+      )
+    end
+
+    self.delivery = nil
+    self.delivery_queue.clear
+  end
+
   def delivery_queued?
     self.delivery_queue.any?
   end
 
   def quit!
     self.close_requested!
+
     self.force_transition!(state: :quit, from: :ready)
   end
 
@@ -90,9 +128,7 @@ module Mua::Client::ContextExtensions
     # ...
   end
 
-  # REFACTOR: Is this useful?
   def handle_reply_continuation(reply_code, reply_message, continues)
-    # FIX: Convert to while or loop
     @reply_message ||= ''
     
     if (preamble = @reply_message.split(/\s/).first)

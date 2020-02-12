@@ -136,10 +136,13 @@ end
 if (options[:stopwatch])
   delta = Time.now - start
 
-  puts('Sent %d message(s) in %.1fs at %.1fMPS (%.1fMB/s)' % [
+  mb = messages.map { |d| d[:data].bytesize }.sum / 1024**2
+
+  puts('Sent %d message(s) in %.1fs at %.1fMPS (%.1fMB at %.1fMB/s)' % [
     messages.length,
     delta,
     messages.length / delta,
-    messages.map { |d| d[:data].bytesize }.sum / delta / 1024**2
+    mb,
+    mb / delta
   ])
 end

@@ -368,6 +368,13 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
   
   state(:terminated) do
     enter do |context|
+      context.delivery_queued_fail!(
+        result_code: 'SMTP_TERM',
+        result_message: 'Connection was terminated'
+      )
+
+      context.input = nil
+
       context.parent_transition!(state: :smtp_finished)
     end
   end

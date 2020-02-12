@@ -25,6 +25,7 @@ program = OptionParser.new do |opts|
   opts.on('-v', '--verbose', 'Enable versbose mode')
   opts.on('-s', '--silent', 'Suppress output')
   opts.on('-t', '--timeout=TIMEOUT', 'Set SMTP command timeout (seconds)', Integer)
+  opts.on('-r', '--random', 'Randomize behavior')
 end
 
 program.parse!(ARGV, into: options)
@@ -51,16 +52,20 @@ Async do
 
     case (event)
     when :deliver_accept
+      message = args[0]
       received[context.id][:messages] += 1
-      received[context.id][:bytes] += context.messages.last.data.bytesize
+      received[context.id][:bytes] += message.data.bytesize
     when :disconnected
       cr = received[context.id]
+      delta = Time.now - context.connected_at
 
-      puts('%s> Received %d message(s) at %.1fMPS (%.1fMB/s)' % [
+      puts('%s> Received %d message(s) in %.1fs at %.1fMPS (%.1fMB at %.1fMB/s)' % [
         context.remote_addr,
         cr[:messages],
-        cr[:messages] / (Time.now - context.connected_at),
-        (cr[:bytes] / (Time.now - context.connected_at)) / 1024**2
+        delta,
+        cr[:messages] / delta,
+        cr[:bytes] / 1024**2,
+        (cr[:bytes] / delta) / 1024**2
       ])
     end
   end

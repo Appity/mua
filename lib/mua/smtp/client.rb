@@ -32,14 +32,25 @@ class Mua::SMTP::Client
       end
 
     @task = @reactor.async do |task|
-      @endpoint.connect do |peer|
-        @context.input = Async::IO::Stream.new(peer)
+      begin
+        @endpoint.connect do |peer|
+          @context.input = Async::IO::Stream.new(peer)
+
+          @interpreter = Mua::SMTP::Client::ProxyAwareInterpreter.new(@context)
+
+          @interpreter.run!(&block)
+        end
+
+      rescue Exception => e
+        @context.exception = e
 
         @interpreter = Mua::SMTP::Client::ProxyAwareInterpreter.new(@context)
 
         @interpreter.run!(&block)
       end
     end
+
+    @task.wait
   end
 
   def deliver!(**args)

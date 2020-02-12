@@ -31,12 +31,16 @@ class Mua::SMTP::Client
         Async::IO::Endpoint.tcp(@context.smtp_host, @context.smtp_port)
       end
 
+    @signal = Async::Condition.new
+
     @task = @reactor.async do |task|
       begin
         @endpoint.connect do |peer|
           @context.input = Async::IO::Stream.new(peer)
 
           @interpreter = Mua::SMTP::Client::ProxyAwareInterpreter.new(@context)
+
+          @signal.signal
 
           @interpreter.run!(&block)
         end
@@ -46,15 +50,21 @@ class Mua::SMTP::Client
 
         @interpreter = Mua::SMTP::Client::ProxyAwareInterpreter.new(@context)
 
+        @signal.signal
+
         @interpreter.run!(&block)
       end
     end
 
-    @task.wait
+    @signal.wait
   end
 
   def deliver!(**args)
     @context.deliver!(Mua::SMTP::Message.new(args))
+  end
+
+  def wait
+    @task.wait
   end
 
   def quit!

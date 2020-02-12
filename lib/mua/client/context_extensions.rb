@@ -109,10 +109,9 @@ module Mua::Client::ContextExtensions
   end
 
   def force_transition!(state:, from: nil)
-    if (!from or self.state == from)
-      @state_target = state
-      self.read_task&.stop
-    end
+    @state_target = state
+
+    self.read_task&.stop
   end
 
   # REFACTOR: Are these useful? The new event model may nullify this

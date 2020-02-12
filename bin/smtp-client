@@ -111,7 +111,7 @@ Async do |reactor|
 
   deliveries = messages.map do |message|
     if (options[:verbose])
-      puts delivery[:name]
+      puts message[:name]
     end
 
     client.deliver!(

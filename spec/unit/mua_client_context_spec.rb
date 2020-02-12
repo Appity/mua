@@ -94,6 +94,8 @@ RSpec.describe Mua::Client::Context, type: :reactor do
   context 'has extensions' do
     it 'to queue up messages' do
       context = Mua::Client::Context.new
+      context.input = :dummy
+      
       message = Mua::SMTP::Message.new(
         mail_from: 'mail-from@example.org',
         rcpt_to: 'rcpt-to@example.org',

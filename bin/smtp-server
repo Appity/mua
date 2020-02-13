@@ -37,40 +37,47 @@ end
 # TODO: Add Async::IO::Trap.new(:INT)
 #       per https://github.com/socketry/async-io/blob/master/examples/echo/server.rb
 
-Async do
-  received = Hash.new do |h,k|
-    h[k] = {
-      messages: 0,
-      bytes: 0
-    }
-  end
-
-  server = Mua::SMTP::Server.new(timeout: options[:timeout]) do |context, state, event, *args|
-    if (options[:verbose])
-      puts('%s> %s' % [ context.remote_addr, event ])
+begin
+  Async do
+    received = Hash.new do |h,k|
+      h[k] = {
+        messages: 0,
+        bytes: 0
+      }
     end
 
-    case (event)
-    when :deliver_accept
-      message = args[0]
-      received[context.id][:messages] += 1
-      received[context.id][:bytes] += message.data.bytesize
-    when :disconnected
-      cr = received[context.id]
-      delta = Time.now - context.connected_at
+    server = Mua::SMTP::Server.new(timeout: options[:timeout]) do |context, state, event, *args|
+      if (options[:verbose])
+        puts('%s> %s' % [ context.remote_addr, event ])
+      end
 
-      puts('%s> Received %d message(s) in %.1fs at %.1fMPS (%.1fMB at %.1fMB/s)' % [
-        context.remote_addr,
-        cr[:messages],
-        delta,
-        cr[:messages] / delta,
-        cr[:bytes] / 1024**2,
-        (cr[:bytes] / delta) / 1024**2
-      ])
+      case (event)
+      when :deliver_accept
+        message = args[0]
+        received[context.id][:messages] += 1
+        received[context.id][:bytes] += message.data.bytesize
+      when :disconnected
+        cr = received[context.id]
+        delta = Time.now - context.connected_at
+
+        puts('%s> Received %d message(s) in %.1fs at %.1fMPS (%.1fMB at %.1fMB/s)' % [
+          context.remote_addr,
+          cr[:messages],
+          delta,
+          cr[:messages] / delta,
+          cr[:bytes] / 1024**2,
+          (cr[:bytes] / delta) / 1024**2
+        ])
+      end
+    end
+
+    unless (options[:silent])
+      puts('SMTP server listening on %s:%d' % [ server.bind, server.port ])
     end
   end
 
-  unless (options[:silent])
-    puts('SMTP server listening on %s:%d' % [ server.bind, server.port ])
-  end
+rescue Interrupt
+  # Expected exit condition, just shut down.
+  puts('Interrupt received. Terminating.')
+  exit(0)
 end

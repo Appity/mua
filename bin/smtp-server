@@ -16,6 +16,7 @@ require 'logger'
 # == Main ===================================================================
 
 options = {
+  listen: '127.0.0.1:1025',
   timeout: 30,
   silent: false
 }
@@ -24,8 +25,10 @@ program = OptionParser.new do |opts|
   opts.on('-d', '--debug', 'Enable debug log of stream communcation')
   opts.on('-v', '--verbose', 'Enable versbose mode')
   opts.on('-s', '--silent', 'Suppress output')
-  opts.on('-t', '--timeout=TIMEOUT', 'Set SMTP command timeout (seconds)', Integer)
+  opts.on('-t', '--timeout TIMEOUT', 'Set SMTP command timeout (seconds)', Integer)
   opts.on('-r', '--random', 'Randomize behavior')
+
+  opts.on('-l', '--listen LISTEN', 'Host/port to listen on (e.g. 127.0.0.1:1025')
 end
 
 program.parse!(ARGV, into: options)
@@ -37,6 +40,8 @@ end
 # TODO: Add Async::IO::Trap.new(:INT)
 #       per https://github.com/socketry/async-io/blob/master/examples/echo/server.rb
 
+options[:bind], options[:port] = options[:listen].split(':')
+
 begin
   Async do
     received = Hash.new do |h,k|
@@ -46,7 +51,11 @@ begin
       }
     end
 
-    server = Mua::SMTP::Server.new(timeout: options[:timeout]) do |context, state, event, *args|
+    server = Mua::SMTP::Server.new(
+      bind: options[:bind],
+      port: options[:port],
+      timeout: options[:timeout]
+    ) do |context, state, event, *args|
       if (options[:verbose])
         puts('%s> %s' % [ context.remote_addr, event ])
       end

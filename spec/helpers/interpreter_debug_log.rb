@@ -3,12 +3,12 @@ module InterpreterDebugLog
     if (ENV['DEBUG'])
       interpreter_debug_log!(interpreter)
     else
-      interpreter.run!
+      interpreter.run
     end
   end
   
   def interpreter_debug_log!(interpreter)
-    interpreter.run.each do |context, state, *event|
+    interpreter.run do |context, state, *event|
       if (state.name == state.class.to_s)
         $stdout.puts("#{state.class} -> #{event.inspect}")
       else

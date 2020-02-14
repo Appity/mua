@@ -45,6 +45,7 @@ Mua::SMTP::Client::ProxyAwareInterpreter = Mua::Interpreter.define(
   state(:finished) do
     enter do |context|
       context.close!
+      context.terminated!
     end
   end
 

@@ -1,4 +1,4 @@
-RSpec.describe Mua::State do
+RSpec.describe Mua::State, type: :reactor, timeout: 5 do
   it 'has minimal defaults' do
     state = Mua::State.new
 
@@ -104,13 +104,13 @@ RSpec.describe Mua::State do
     end
 
     context = Mua::State::Context.new(input: [ :example ])
-    state.run!(context)
+    state.run(context)
 
     expect(ran).to eq([ :enter, :parser, :example, :exception, :parser, :leave ])
 
     ran.clear
     context.input = [ :not_example ]
-    state.run!(context)
+    state.run(context)
 
     expect(ran).to eq([ :enter, :parser, :default, :leave ])
   end
@@ -143,8 +143,8 @@ RSpec.describe Mua::State do
 
       context = ContextWithBranch.new(input: [ :primary ])
 
-      events = StateEventsHelper.map_locals do
-        state.run!(context)
+      events = StateEventsHelper.map_locals do |fn|
+        state.run(context, &fn)
       end
 
       expect(context.branch).to eq(:primary)
@@ -160,8 +160,8 @@ RSpec.describe Mua::State do
 
       context = ContextWithBranch.new(input: [ :secondary ])
 
-      events = StateEventsHelper.map_locals do
-        state.run!(context)
+      events = StateEventsHelper.map_locals do |fn|
+        state.run(context, &fn)
       end
 
       expect(context.branch).to eq(:secondary)
@@ -182,8 +182,8 @@ RSpec.describe Mua::State do
 
       context = Mua::State::Context.new
 
-      events = StateEventsHelper.map_locals do
-        state.run!(context)
+      events = StateEventsHelper.map_locals do |fn|
+        state.run(context, &fn)
       end
 
       expect(events).to eq([
@@ -225,8 +225,8 @@ RSpec.describe Mua::State do
 
       context = TrackingContext.new(input: [ :substate, :branch ])
 
-      events = StateEventsHelper.map_locals do
-        parent.run!(context)
+      events = StateEventsHelper.map_locals do |fn|
+        parent.run(context, &fn)
       end
 
       expect(context.visited).to eq([ :parent, :substate, :branch ])
@@ -302,7 +302,7 @@ RSpec.describe Mua::State do
 
     context.input = 'You cannot cut back on RFC 5322!'
 
-    events = state.run!(context)
+    events = state.run(context)
 
     expect(context.parts).to eq([
       { word: 'you' },
@@ -347,7 +347,7 @@ RSpec.describe Mua::State do
 
     context.input = 'This is a story about an interpreter'
 
-    events = state.run!(context)
+    events = state.run(context)
 
     expect(context.parts).to eq([
       'this',
@@ -379,7 +379,7 @@ RSpec.describe Mua::State do
       :exception_captured
     ).new
 
-    expect { state.run!(context) }.to_not raise_exception(custom_exception)
+    expect { state.run(context) }.to_not raise_exception(custom_exception)
 
     expect(context.exception_captured).to be_kind_of(custom_exception)
   end

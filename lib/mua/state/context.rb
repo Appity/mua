@@ -15,7 +15,6 @@ class Mua::State::Context
   attr_accessor :reactor
   attr_accessor :state
   attr_accessor :input
-  attr_accessor :events
   attr_boolean :terminated
   
   # == Class Methods ========================================================
@@ -30,11 +29,10 @@ class Mua::State::Context
   
   # == Instance Methods =====================================================
 
-  def initialize(reactor: nil, state: nil, input: nil, events: nil)
+  def initialize(reactor: nil, state: nil, input: nil)
     @reactor = reactor
     @state = state || self.initial_state
     @input = input
-    @events = events
     @terminated = false
 
     yield(self) if (block_given?)
@@ -63,10 +61,6 @@ class Mua::State::Context
     else
       @input
     end
-  end
-
-  def event!(state, *args)
-    self.events << [ self, state, *args ]
   end
 
   def parser_redo!

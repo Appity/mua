@@ -1,4 +1,4 @@
-RSpec.describe Mua::SMTP::Client::Support do
+RSpec.describe Mua::SMTP::Client::Support, timeout: 5 do
   it 'can split simple replies' do
     expect_mapping(
       '250 OK' => [ 250, 'OK' ],

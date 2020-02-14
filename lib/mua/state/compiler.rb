@@ -9,7 +9,7 @@ module Mua::State::Compiler
 
     if (interpreters.any?)
       b.eval([
-        '-> (context, branch, *args) do',
+        '-> (context, branch, *args, &events) do',
         'case (branch)',
         *interpreters.flat_map.with_index do |(match, block), i|
           b.local_variable_set(:"__block_#{i}", block)
@@ -18,29 +18,29 @@ module Mua::State::Compiler
           when Regexp
             [
               'when %s' % match.inspect,
-              '__block_%d.call(context, *$~, *args)' % i
+              '__block_%d.call(context, *$~, *args, &events)' % i
             ]
           when Range
             [
               'when %s' % match.inspect,
-              '__block_%d.call(context, branch, *args)' % i
+              '__block_%d.call(context, branch, *args, &events)' % i
             ]
           when String
             [
               'when %s' % match.dump,
-              '__block_%d.call(context, *args)' % i
+              '__block_%d.call(context, *args, &events)' % i
             ] 
           when Symbol, Integer, Float, true, false, nil
             [
               'when %s' % match.inspect,
-              '__block_%d.call(context, *args)' % i
+              '__block_%d.call(context, *args, &events)' % i
             ]
           when Mua::Token
             mvar = :"__match_#{i}"
             b.local_variable_set(mvar, match)
             [
               'when %s' % mvar,
-              '__block_%d.call(context, *args)' % i
+              '__block_%d.call(context, *args, &events)' % i
             ]
           else
             raise "Unsupported branch type #{match.class}"
@@ -50,7 +50,7 @@ module Mua::State::Compiler
           if (default)
             [
               'else',
-              'default.call(context, branch, *args)'
+              'default.call(context, branch, *args, &events)'
             ]
           else
             [ ]
@@ -71,7 +71,7 @@ module Mua::State::Compiler
 
             [
               'rescue %s => e' % exception,
-              '%s.call(context, e)' % mvar
+              '%s.call(context, e, &events)' % mvar
             ]
           end
         ),
@@ -80,8 +80,8 @@ module Mua::State::Compiler
         'end'
       ].join("\n"))
     elsif (default)
-      -> (context, branch, *args) do
-        default.call(context, branch, *args)
+      -> (context, branch, *args, &events) do
+        default.call(context, branch, *args, &events)
       rescue ArgumentError => e
         raise ArgumentError, "default branch for input #{branch.inspect} has handler with #{e}"
       end

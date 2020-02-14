@@ -6,8 +6,9 @@ module Mua
       module ContextExtensions
         def read_line
           # REFACTOR: There's probably a better way to handle this than
-          #           by creating a task per readline operation.
-          self.read_task = self.reactor.async do
+          #           by creating a task per readline operation but it needs
+          #           to be an interruptable operation.
+          self.read_task = Async do
             if (line = self.input.gets)
               yield(line.chomp)
             elsif (@state_target)
@@ -32,6 +33,7 @@ module Mua
         
         def write(data)
           self.input.write(data)
+          self.input.flush
         end
       
         def reply(*lines)

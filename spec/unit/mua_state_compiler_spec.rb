@@ -1,6 +1,6 @@
 RSpec.describe Mua::State::Compiler do
   context 'dispatcher()' do
-    it 'can create a Proc based on an empty spec' do
+    it 'can create a Proc based on an empty spec', timeout: 5 do
       compiled = Mua::State::Compiler.dispatcher(interpreters: [ ])
 
       expect(compiled).to be_kind_of(Proc)

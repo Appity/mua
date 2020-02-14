@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    mua (0.2.3)
+    mua (0.3.0)
       async
       async-io
 
@@ -56,4 +56,4 @@ DEPENDENCIES
   stackprof
 
 BUNDLED WITH
-   2.1.2
+   2.1.4

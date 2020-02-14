@@ -34,6 +34,8 @@ module MockStream
       input: sa
     )
 
+    sb.extend(SendReceiveHelper)
+
     if (block_given?)
       begin
         yield(context, sb)

@@ -38,9 +38,7 @@ class Mua::State::Machine < Mua::State
     @states.key?(state)
   end
 
-  def run_interior(context, step: false)
-    events = context.events
-    
+  def run_interior(context, step: false, &events)
     loop do
       transition = nil
 
@@ -50,40 +48,17 @@ class Mua::State::Machine < Mua::State
         break
       end
 
-      case (result = @dispatcher.call(context, context.state))
+      case (result = @dispatcher.call(context, context.state, &events))
       when Mua::State::Transition
         transition = result
 
         context.state = transition.state
-        events << [ context, self, :transition, context.state ]
+        events&.call(context, self, :transition, context.state)
 
-        return result unless (result.parent === false)
-      when Enumerator
-        result.each do |event, *args|
-          case (event)
-          when Mua::State::Transition
-            if (transition)
-              raise "Emitted a double transition during state processing."
-            end
-
-            transition = event
-            context.state = transition.state
-            events << [ context, self, :transition, context.state ]
-
-            # Events propagate up one level if parent is set to anything
-            # other than false. In that case the false flag must be set to
-            # avoid bubbling up too far.
-            if (event.parent === true)
-              event.parent = false
-              return event
-            end
-          else
-            events << [ event, *args ]
-          end
-        end
+        break result if (result.parent)
       end
 
-      break if (step or context.terminated? or !transition)
+      break if (step or context.terminated?)
     end
   end
 

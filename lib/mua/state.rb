@@ -104,81 +104,68 @@ class Mua::State
     end
   end
 
-  def run!(context, step: false)
-    self.run(context, step: step).to_a
-  end
-
-  def run(context, step: false)
+  def run(context, step: false, &events)
     # REFACTOR: This needs to be something the Compiler can generate
-    Enumerator.new do |events|
-      context.events = events
-      terminated = false
-      transition = nil
+    terminated = false
+    transition = nil
 
-      events << [ context, self, :enter ]
+    events&.call(context, self, :enter)
 
-      case (result = self.trigger(context, @enter))
+    case (result = self.trigger(context, @enter))
+    when Mua::State::Transition
+      # When a state transition occurs in the enter call, skip processing.
+      context.state = result.state
+
+      unless (result.parent === false)
+        transition = result
+      end
+    end
+
+    unless (transition)
+      case (result = @preprocess&.call(context))
       when Mua::State::Transition
-        # When a state transition occurs in the enter call, skip processing.
         context.state = result.state
-
-        unless (result.parent === false)
-          transition = result
-        end
-      end
-
-      unless (transition)
-        case (result = @preprocess&.call(context))
-        when Mua::State::Transition
-          context.state = result.state
-        else
-          case (iresult = self.run_interior(context, step: step))
-          when Mua::State::Transition
-            transition = iresult
-          end
-        end
-      end
-
-      events << [ context, self, :leave ]
-
-      self.trigger(context, @leave)
-
-      if (context.terminated? or (!@parent and @auto_terminate))
-        events << [ context, self, :terminate ]
-      end
-
-      unless (!transition or transition.parent === false)
-        events << transition
-      end
-
-    rescue Exception => e
-      if (handler = @exception_handlers[e.class])
-        handler.call(context, e)
       else
-        raise e
+        case (iresult = self.run_interior(context, step: step, &events))
+        when Mua::State::Transition
+          transition = iresult
+        end
       end
+    end
+
+    events&.call(context, self, :leave)
+
+    self.trigger(context, @leave)
+
+    if (context.terminated? or (!@parent and @auto_terminate))
+      events&.call(context, self, :terminate)
+    end
+
+    transition
+
+  rescue Exception => e
+    if (handler = @exception_handlers[e.class])
+      handler.call(context, e)
+    else
+      raise e
     end
   end
   alias_method :call, :run
 
-  def run_interior(context, step: false)
+  def run_interior(context, step: false, &events)
     # REFACTOR: This needs to be something the Compiler can generate
-    events = context.events
-
     loop do
       begin
         branch, *args =
           if (@parser)
             @parser.call(context)
-          elsif (context.respond_to?(:read))
-            context.read
           end
         
         redo if (branch == Mua::Token::Redo)
       end
 
       if (branch)
-        events << [ context, self, :branch, branch ]
+        events&.call(context, self, :branch, branch)
       end
 
       run = true
@@ -187,7 +174,7 @@ class Mua::State
       when Mua::State::Transition
         context.state = branch.state
 
-        break branch unless (branch.parent === false)
+        break branch if (branch.parent)
 
         branch = context.state
       when nil
@@ -196,22 +183,11 @@ class Mua::State
       end
 
       if (run)
-        case (result = @dispatcher.call(context, branch, *args))
+        case (result = @dispatcher.call(context, branch, *args, &events))
         when Mua::State::Transition
           context.state = result.state
 
           break result unless (result.parent === false)
-        when Enumerator
-          result.each do |event|
-            case (event)
-            when Mua::State::Transition
-              context.state = event.state
-
-              break event unless (event.parent === false)
-            else
-              events << event
-            end
-          end
         end
       end
 

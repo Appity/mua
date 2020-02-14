@@ -1,4 +1,8 @@
 module Mua::SOCKS5::Server::ContextExtensions
+  def event!(*args)
+    self.event&.call(*args)
+  end
+
   def authorized_user?(username, password)
     true
   end

@@ -42,6 +42,13 @@ RSpec.configure do |config|
   config.include(SimulateExchange, type: :interpreter)
   config.include(InterpreterDebugLog, type: :interpreter)
   config.include_context(Async::RSpec::Reactor, type: :reactor)
+
+  if (ENV['DEBUG'])
+    puts 'Stream debugging enabled'
+    Async::IO::Stream.prepend(Mua::Debug::StreamExtensions)
+
+    config.include_context(Async::RSpec::Leaks, type: :reactor_leaks)
+  end
 end
 
 RSpec::Matchers.define :be_an_array_of do |expected|
@@ -51,5 +58,12 @@ RSpec::Matchers.define :be_an_array_of do |expected|
 
   failure_message do |actual|
     "expected #{actual} to be composed of only #{expected} objects"
+  end
+end
+
+Signal.trap('USR1') do
+  Thread.list.each do |t|
+    p t
+    puts t.backtrace.join("\n")
   end
 end

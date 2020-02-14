@@ -27,17 +27,17 @@ module StateEventsHelper
 
   def map_locals(&block)
     aliases = local_object_ids(block.binding)
+    array = [ ]
 
-    block.call.map do |event|
-      case (event)
-      when Array
-        event.map do |e|
+    yield(
+      -> (*event) do
+        array << event.map do |e|
           aliases[e.object_id] || e
         end
-      else
-        event
       end
-    end
+    )
+
+    array
   end
 
   def events_with_binding(events, b)

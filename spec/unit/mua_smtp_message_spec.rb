@@ -1,4 +1,4 @@
-RSpec.describe Mua::SMTP::Message do
+RSpec.describe Mua::SMTP::Message, timeout: 5 do
   it 'has defaults' do
     message = Mua::SMTP::Message.new
 

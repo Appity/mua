@@ -52,12 +52,10 @@ class Mua::Interpreter
     yield(self) if (block_given?)
   end
 
-  def run!
-    @machine.run!(@context)
-  end
-
-  def run
-    @machine.run(@context)
+  def run(&block)
+    Async do
+      @machine.run(@context, &block)
+    end
   end
   alias_method :call, :run
 end

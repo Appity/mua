@@ -1,6 +1,6 @@
 require_relative '../support/mock_stream'
 
-RSpec.describe Mua::State::Machine do
+RSpec.describe Mua::State::Machine, type: :reactor, timeout: 1 do
   it 'has a default state map' do
     machine = Mua::State::Machine.new
 
@@ -13,25 +13,25 @@ RSpec.describe Mua::State::Machine do
 
     expect(machine.state_defined?(:initialize)).to be(true)
     expect(machine.state_defined?(:finished)).to be(true)
-    expect(machine.state_defined?(:invalid)).to be(false)
+    expect(machine.state_defined?(:not_defined)).to be(false)
 
     context = Mua::State::Context.new(state: :initialize)
 
-    initialize = machine.states[:initialize]
-    finished = machine.states[:finished]
+    initialize_state = machine.states[:initialize]
+    finished_state = machine.states[:finished]
 
-    events = StateEventsHelper.map_locals do
-      machine.run!(context)
+    events = StateEventsHelper.map_locals do |fn|
+      machine.run(context, &fn)
     end
 
     expect(events).to eq([
       [ :context, :machine, :enter ],
-      [ :context, :initialize, :enter],
-      [ :context, :initialize, :leave ],
+      [ :context, :initialize_state, :enter],
+      [ :context, :initialize_state, :leave ],
       [ :context, :machine, :transition, :finished ],
-      [ :context, :finished, :enter ],
-      [ :context, :finished, :leave ],
-      [ :context, :finished, :terminate ],
+      [ :context, :finished_state, :enter ],
+      [ :context, :finished_state, :leave ],
+      [ :context, :finished_state, :terminate ],
       [ :context, :machine, :leave ],
       [ :context, :machine, :terminate ]
     ])
@@ -115,7 +115,7 @@ RSpec.describe Mua::State::Machine do
 
       expect(machine.states.keys).to eq([ :initialize, *(0..count).to_a, :finished ])
 
-      machine.run!(Mua::State::Context.new)
+      machine.run(Mua::State::Context.new)
 
       expect(entered).to eq((0...count).to_a)
     end
@@ -158,20 +158,20 @@ RSpec.describe Mua::State::Machine do
       context = Mua::State::Context.new
 
       count.times do |i|
-        machine.run!(context, step: true)
+        machine.run(context, step: true)
 
         expect(entered).to eq((0...i).to_a)
       end
 
       expect(context.state).to eq(count - 1)
 
-      machine.run!(context, step: true)
+      machine.run(context, step: true)
       expect(context.state).to eq(count)
 
-      machine.run!(context, step: true)
+      machine.run(context, step: true)
       expect(context.state).to eq(:finished)
 
-      machine.run!(context, step: true)
+      machine.run(context, step: true)
       expect(context).to be_terminated
 
       expect(entered).to eq((0..count).to_a + [ :finished ])
@@ -196,7 +196,7 @@ RSpec.describe Mua::State::Machine do
 
       context = Mua::State::Context.new(state: :custom)
 
-      events = machine.run!(context)
+      events = machine.run(context)
 
       expect(entered).to be(true)
     end
@@ -212,7 +212,7 @@ RSpec.describe Mua::State::Machine do
 
       context = Mua::State::Context.new
 
-      expect { machine.run!(context) }.to raise_exception(Mua::State::Machine::InvalidStateError)
+      expect { machine.run(context) }.to raise_exception(Mua::State::Machine::InvalidStateError)
     end
   end
 
@@ -249,20 +249,19 @@ RSpec.describe Mua::State::Machine do
 
     context = VisitTrackingContext.new(state: :initialize)
 
-    events = StateEventsHelper.reduce(
-      machine.call(context),
-      context: context,
-      machine: machine,
-      initialize: machine.states[:initialize],
-      finished: machine.states[:finished],
-      state_a: states[:a],
-      state_b: states[:b]
-    )
+    initialize_state = machine.states[:initialize]
+    finished_state = machine.states[:finished]
+    state_a = states[:a]
+    state_b = states[:b]
+
+    events = StateEventsHelper.map_locals do |fn|
+      machine.run(context, &fn)
+    end
 
     expect(events).to eq([
       [ :context, :machine, :enter ],
-      [ :context, :initialize, :enter ],
-      [ :context, :initialize, :leave ],
+      [ :context, :initialize_state, :enter ],
+      [ :context, :initialize_state, :leave ],
       [ :context, :machine, :transition, :a ],
       [ :context, :state_a, :enter ],
       [ :context, :state_a, :leave ],
@@ -270,9 +269,9 @@ RSpec.describe Mua::State::Machine do
       [ :context, :state_b, :enter ],
       [ :context, :state_b, :leave ],
       [ :context, :machine, :transition, :finished ],
-      [ :context, :finished, :enter ],
-      [ :context, :finished, :leave ],
-      [ :context, :finished, :terminate ],
+      [ :context, :finished_state, :enter ],
+      [ :context, :finished_state, :leave ],
+      [ :context, :finished_state, :terminate ],
       [ :context, :machine, :leave ],
       [ :context, :machine, :terminate ]
     ])
@@ -323,7 +322,7 @@ RSpec.describe Mua::State::Machine do
     )
 
     expect(machine.name).to eq('inherited_parser')
-    machine.run!(context)
+    machine.run(context)
 
     expect(context.lines).to eq([
       [ :first, 'this' ],
@@ -379,6 +378,6 @@ RSpec.describe Mua::State::Machine do
 
     context = Mua::State::Context.define(visited: -> { [ ] }).new
 
-    expect(machine.run!(context))
+    expect(machine.run(context))
   end
 end

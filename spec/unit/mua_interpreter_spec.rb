@@ -1,13 +1,15 @@
 require_relative '../support/mock_stream'
 
-RSpec.describe Mua::Interpreter, type: [ :interpreter, :reactor ] do
+RSpec.describe Mua::Interpreter, type: [ :interpreter, :reactor ], timeout: 2 do
   context 'define' do
     it 'can create a class with a custom state machine and context' do
       interpreter_class = Mua::Interpreter.define(
         header: nil,
         body: -> { [ ] }
       ) do
-        parser(match: "\n", chomp: true)
+        parser(match: "\n", chomp: true) do |context, line|
+          [ line.split('|') ]
+        end
 
         state(:initialize) do
           enter do |context|
@@ -16,16 +18,16 @@ RSpec.describe Mua::Interpreter, type: [ :interpreter, :reactor ] do
         end
 
         state(:header) do
-          default do |context, line|
-            context.header = line.split('|')
+          default do |context, header|
+            context.header = header
 
             context.transition!(state: :body)
           end
         end
 
         state(:body) do
-          default do |context, line|
-            context.body << line.split('|')
+          default do |context, body|
+            context.body << body
           end
         end
       end
@@ -48,7 +50,7 @@ RSpec.describe Mua::Interpreter, type: [ :interpreter, :reactor ] do
       expect(context).to be_kind_of(interpreter_class.context)
       expect(context).to respond_to(:header=, :body)
 
-      interpreter.run!
+      interpreter.run
 
       expect(context.header).to eq(%w[ a b c ])
       expect(context.body).to match_array(data[1..4].map{ |v| v.split('|') })
@@ -104,6 +106,7 @@ RSpec.describe Mua::Interpreter, type: [ :interpreter, :reactor ] do
       io.puts('HELO example.com')
       io.puts('MAIL FROM:<test@example.com>')
       io.puts('QUIT')
+      io.flush
       io.close_write
 
       interpreter = RegexpInterpreter.new(context)
@@ -113,7 +116,36 @@ RSpec.describe Mua::Interpreter, type: [ :interpreter, :reactor ] do
       
       expect(interpreter.context).to be(context)
 
-      interpreter_run!(interpreter)
+      machine = interpreter.machine
+      initialize_state = interpreter.machine.states[:initialize]
+      helo_state = interpreter.machine.states[:helo]
+      mail_from_state = interpreter.machine.states[:mail_from]
+      finished_state = interpreter.machine.states[:finished]
+
+      events = StateEventsHelper.map_locals do |fn|
+        interpreter.run(&fn)
+      end
+
+      expect(events).to eq([
+        [ :context, :machine, :enter ],
+        [ :context, :initialize_state, :enter ],
+        [ :context, :initialize_state, :leave],
+        [ :context, :machine, :transition, :helo ],
+        [ :context, :helo_state, :enter ],
+        [ :context, :helo_state, :branch, 'HELO example.com' ],
+        [ :context, :helo_state, :leave],
+        [ :context, :machine, :transition, :mail_from ],
+        [ :context, :mail_from_state, :enter ],
+        [ :context, :mail_from_state, :branch, 'MAIL FROM:<test@example.com>' ],
+        [ :context, :mail_from_state, :branch, 'QUIT' ],
+        [ :context, :mail_from_state, :leave],
+        [ :context, :machine, :transition, :finished ],
+        [ :context, :finished_state, :enter ],
+        [ :context, :finished_state, :leave ],
+        [ :context, :finished_state, :terminate ],
+        [ :context, :machine, :leave ],
+        [ :context, :machine, :terminate ]
+      ])
 
       expect(context.received).to eq([
         [ :helo, 'example.com' ],

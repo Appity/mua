@@ -87,5 +87,28 @@ RSpec.describe Mua::Parser do
       expect(parser.call(context)).to eq(nil)
       expect(context.input).to be_eof
     end
+
+    it 'can emit a reader for byte-packed structures with a block for post-processing' do
+      parser = Mua::Parser.read_stream(exactly: 10, unpack: 'CCxCA4n') do |context, _version, reply, addr_type, addr, port|
+        [
+          reply,
+          {
+            addr: addr.bytesize == 4 ? IPAddr.ntop(addr) : nil,
+            port: port,
+            addr_type: addr_type
+          }
+        ]
+      end
+
+      context = MockStream.context([ 5, 1, 1, 127, 0, 0, 1, 1025 ].pack('CCxCC4n'))
+
+      expect(parser.call(context)).to eq(
+        [ 1, { addr: '127.0.0.1', addr_type: 1, port: 1025 } ]
+      )
+
+      context = MockStream.context([ 5, 1, 1 ].pack('CCxC'))
+
+      expect { parser.call(context) }.to raise_exception(EOFError)
+    end
   end
 end

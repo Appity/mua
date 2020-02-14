@@ -8,13 +8,14 @@ module Mua
           # REFACTOR: There's probably a better way to handle this than
           #           by creating a task per readline operation but it needs
           #           to be an interruptable operation.
-          self.read_task = Async do
-            if (line = self.input.gets)
+          self.read_task = Async::Task.current.with_timeout(self.timeout) do
+          # self.read_task = Async do
+              if (line = self.input.gets)
               yield(line.chomp)
             elsif (@state_target)
               transition!(state: @state_target)
             end
-          end.wait
+          end
       
           # FIX: Handle Async read interruptions
       

@@ -13,7 +13,7 @@ Mua::SOCKS5::Client::Standalone = Mua::Interpreter.define(
       io = context.input.io
 
       [
-        context.reactor.async do
+        Async do
           loop do
             $stdin.wait_readable
             io.wait_writable
@@ -30,7 +30,7 @@ Mua::SOCKS5::Client::Standalone = Mua::Interpreter.define(
           io.flush
           io.close_write
         end,
-        context.reactor.async do
+        Async do
           loop do
             io.wait_readable
             $stdout.write(io.read_nonblock(1024) || break)
@@ -52,6 +52,7 @@ Mua::SOCKS5::Client::Standalone = Mua::Interpreter.define(
 
   state(:proxy_failed) do
     enter do |context|
+      # Dumy state to capture transition
     end
   end
 end

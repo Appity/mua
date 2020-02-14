@@ -156,10 +156,7 @@ class Mua::State
     # REFACTOR: This needs to be something the Compiler can generate
     loop do
       begin
-        branch, *args =
-          if (@parser)
-            @parser.call(context)
-          end
+        branch, *args = @parser&.call(context)
         
         redo if (branch == Mua::Token::Redo)
       end

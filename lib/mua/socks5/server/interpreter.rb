@@ -128,7 +128,7 @@ Mua::SOCKS5::Server::Interpreter = Mua::Interpreter.define(
             loop do
               context.input.io.wait_readable
               stream.io.wait_writable
-              stream.io.write(context.input.io.read_nonblock(1024)  || break)
+              stream.io.write(context.input.io.read_nonblock(1024) || break)
             end
           rescue Errno::EPIPE, Errno::ECONNRESET, Errno::ECONNREFUSED, Errno::ETIMEDOUT, IOError
             # Normal networking errors

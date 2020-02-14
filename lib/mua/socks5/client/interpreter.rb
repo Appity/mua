@@ -116,7 +116,7 @@ Mua::SOCKS5::Client::Interpreter = Mua::Interpreter.define(
     end
     
     default do |context, reply|
-      context.reply_code = "SOCKS_ERR#{reply}"
+      context.reply_code = "SOCKS5_ERR#{reply}"
 
       context.close!
       context.parent_transition!(state: :proxy_failed)
@@ -169,7 +169,7 @@ Mua::SOCKS5::Client::Interpreter = Mua::Interpreter.define(
     end
     
     default do |context, reply|
-      context.reply_code = "SOCKS_ERR#{reply}"
+      context.reply_code = "SOCKS5_ERR#{reply}"
 
       context.close!
       context.parent_transition!(state: :proxy_failed)
@@ -193,11 +193,18 @@ Mua::SOCKS5::Client::Interpreter = Mua::Interpreter.define(
     end
     
     parser do |context, s|
-      # ...??
+      # TODO: Implement authentication support
     end
     
     interpret(0) do |context|
       context.transition!(state: :request)
     end
+  end
+
+  rescue_from(Errno::EPIPE) do |context|
+    context.reply_code = 'ERRNO_EPIPE'
+
+    context.close!
+    context.parent_transition!(state: :proxy_failed)
   end
 end

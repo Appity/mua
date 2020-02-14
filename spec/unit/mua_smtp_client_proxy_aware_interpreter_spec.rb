@@ -1,5 +1,5 @@
 RSpec.describe Mua::SMTP::Client::ProxyAwareInterpreter, type: :reactor, timeout: 1 do
-  it 'can directly connect to an SMTP service' do
+  it 'can connect through a proxy to an SMTP service' do
     MockStream.context_writable_io(Mua::Client::Context) do |context, io|
       expect(context).to be_kind_of(Mua::Client::Context)
 
@@ -47,6 +47,31 @@ RSpec.describe Mua::SMTP::Client::ProxyAwareInterpreter, type: :reactor, timeout
     end
   end
 
-  it 'can connect through a proxy to an SMTP service' do
+  it 'can directly connect to an SMTP service' do
+    MockStream.context_writable_io(Mua::Client::Context) do |context, io|
+      expect(context).to be_kind_of(Mua::Client::Context)
+
+      context.smtp_host = '127.0.0.1'
+      context.smtp_port = 1025
+
+      interpreter = Mua::SMTP::Client::ProxyAwareInterpreter.new(context)
+
+      expect(context.state).to eq(:initialize)
+
+      reactor.async do
+        interpreter.run do |c, s, *ev|
+          p([ s.name, ev ]) if (ENV['DEBUG'])
+        end
+      end
+
+      reactor.async do
+        io.puts('220 localhost Mua ESMTP Server Ready')
+        io.flush
+
+        read = io.gets
+
+        expect(read).to eq('EHLO localhost')
+      end.wait
+    end
   end
 end

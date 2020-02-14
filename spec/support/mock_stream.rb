@@ -1,5 +1,6 @@
 require 'async/io/stream'
 require 'socket'
+require 'fcntl'
 
 module MockStream
   MODE_DEFAULT = 'r'.freeze
@@ -26,16 +27,22 @@ module MockStream
 
   def self.context_writable_io(context_type = Mua::State::Context)
     sa, sb = Socket.pair(:UNIX, :STREAM, 0).map do |io|
-      Async::IO::Stream.new(io, sync: true)
+      Async::IO::Stream.new(Async::IO.try_convert(io))
     end
 
     context = context_type.new(
       input: sa
     )
 
-    sb.extend(SendReceiveHelper)
-
-    [ context, sb ]
+    if (block_given?)
+      begin
+        yield(context, sb)
+      ensure
+        [ sa, sb ].each(&:close)
+      end
+    else
+      [ context, sb ]
+    end
   end
 
   def self.line_exchange(interpreter_type, &block)

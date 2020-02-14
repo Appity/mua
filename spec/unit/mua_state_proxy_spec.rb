@@ -1,4 +1,4 @@
-RSpec.describe Mua::State::Proxy do
+RSpec.describe Mua::State::Proxy, type: :reactor, timeout: 1 do
   it 'can be attached to a State' do
     state = Mua::State.new
     proxy = Mua::State::Proxy.new(state)
@@ -96,8 +96,8 @@ RSpec.describe Mua::State::Proxy do
 
     context = Mua::State::Context.new(input: [ :a ])
 
-    machine.run(context).each do |context, state, *ev|
-      # p(state: state.name, ev: ev)
+    machine.run(context) do |context, state, *ev|
+      # p(context: context.object_id, state: state.name, event: ev, terminated: context.terminated?)
     end
 
     expect(context.state).to eq(:a)
@@ -105,7 +105,9 @@ RSpec.describe Mua::State::Proxy do
 
     context = Mua::State::Context.new(input: [ :b ])
 
-    machine.run!(context)
+    machine.run(context) do |context, state, *ev|
+      # p(context: context.object_id, state: state.name, event: ev, terminated: context.terminated?)
+    end
 
     expect(context.state).to eq(:b)
     expect(context).to_not be_terminated

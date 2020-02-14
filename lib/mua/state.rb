@@ -174,7 +174,7 @@ class Mua::State
       when Mua::State::Transition
         context.state = branch.state
 
-        break branch if (branch.parent)
+        break branch unless (branch.parent === false)
 
         branch = context.state
       when nil
@@ -193,6 +193,9 @@ class Mua::State
 
       break if (step or context.terminated?)
     end
+
+  rescue Async::Wrapper::Cancelled
+    context.terminated!
   end
 
   def arity

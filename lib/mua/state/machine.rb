@@ -55,10 +55,13 @@ class Mua::State::Machine < Mua::State
         context.state = transition.state
         events&.call(context, self, :transition, context.state)
 
-        break result if (result.parent)
+        break result.deparent! if (result.parent)
       end
 
-      break if (step or context.terminated?)
+      # Break if in single step mode, context has terminated, or the state
+      # failed to transition to something else, which is a dead-end state
+      # that would otherwise spin forever.
+      break if (step or context.terminated? or !transition)
     end
   end
 

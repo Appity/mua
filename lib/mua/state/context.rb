@@ -15,6 +15,7 @@ class Mua::State::Context
   attr_accessor :reactor
   attr_accessor :state
   attr_accessor :input
+  attr_accessor :events
   attr_boolean :terminated
   
   # == Class Methods ========================================================
@@ -34,6 +35,7 @@ class Mua::State::Context
     @state = state || self.initial_state
     @input = input
     @terminated = false
+    @events = nil
 
     yield(self) if (block_given?)
   end
@@ -90,6 +92,11 @@ class Mua::State::Context
   # Returns true if a reactor is associated with this context, false otherwise.
   def reactor?
     !!@reactor
+  end
+
+  # Used to relay events to the event receiver, if any is defined
+  def event!(*args)
+    self.events&.call(*args)
   end
 end
 

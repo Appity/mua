@@ -195,14 +195,11 @@ RSpec.describe Mua::State, type: :reactor, timeout: 5 do
   end
 
   context 'supports nested states' do
-    TrackingContext = Mua::State::Context.define(visited: -> { [ ] }) do
-      def read
-        self.input.shift
-      end
-    end
+    TrackingContext = Mua::State::Context.define(visited: -> { [ ] })
 
     it 'hands off correctly to an inner State' do
       substate = Mua::State.new do |s|
+        s.parser = -> (context) { context.input.shift }
         s.enter << -> (context) {
           context.visited << :substate
         }
@@ -216,6 +213,7 @@ RSpec.describe Mua::State, type: :reactor, timeout: 5 do
       end
 
       parent = Mua::State.new do |s|
+        s.parser = -> (context) { context.input.shift }
         s.enter << -> (context) {
           context.visited << :parent
         }
@@ -229,8 +227,6 @@ RSpec.describe Mua::State, type: :reactor, timeout: 5 do
         parent.run(context, &fn)
       end
 
-      expect(context.visited).to eq([ :parent, :substate, :branch ])
-
       expect(events).to eq([
         [ :context, :parent, :enter ],
         [ :context, :parent, :branch, :substate ],
@@ -241,6 +237,8 @@ RSpec.describe Mua::State, type: :reactor, timeout: 5 do
         [ :context, :parent, :leave ],
         [ :context, :parent, :terminate ]
       ])
+
+      expect(context.visited).to eq([ :parent, :substate, :branch ])
     end
   end
 
@@ -347,7 +345,9 @@ RSpec.describe Mua::State, type: :reactor, timeout: 5 do
 
     context.input = 'This is a story about an interpreter'
 
-    events = state.run(context)
+    events = state.run(context) do |c, s, *ev|
+      p(state: s.name, event: ev) if (ENV['DEBUG'])
+    end
 
     expect(context.parts).to eq([
       'this',

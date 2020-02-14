@@ -16,4 +16,10 @@ class Mua::State::Transition
     @state = state
     @parent = parent
   end
+
+  def deparent!
+    @parent = nil
+
+    self
+  end
 end

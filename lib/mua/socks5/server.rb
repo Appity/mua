@@ -74,7 +74,7 @@ class Mua::SOCKS5::Server
           events&.call(interpreter.context, self, :connected)
         end.run do |*e|
           events&.call(*e)
-        end.wait
+        end
 
         events&.call(interpreter.context, self, :terminated)
       end

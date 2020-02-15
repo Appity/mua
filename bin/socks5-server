@@ -51,6 +51,6 @@ Async do
   end
 
   unless (options[:silent])
-    puts('SMTP server listening on %s:%d' % [ server.bind, server.port ])
+    puts('SOCKS5 server listening on %s:%d' % [ server.bind, server.port ])
   end
 end

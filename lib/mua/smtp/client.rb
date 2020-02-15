@@ -60,6 +60,10 @@ class Mua::SMTP::Client
     @signal.wait
   end
 
+  def state
+    @interpreter.context.state
+  end
+
   def deliver!(**args)
     @context.deliver!(Mua::SMTP::Message.new(args))
   end

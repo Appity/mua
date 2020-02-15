@@ -55,7 +55,7 @@ class Mua::SMTP::Server
           if (EVENTS_PROPAGATED.include?(event))
             yield(c s, event, *args)
           end
-        end.wait
+        end
       end
     end
   end

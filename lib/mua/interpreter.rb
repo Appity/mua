@@ -53,9 +53,7 @@ class Mua::Interpreter
   end
 
   def run(&block)
-    Async do
-      @machine.run(@context, &block)
-    end
+    @machine.run(@context, &block)
   end
   alias_method :call, :run
 end

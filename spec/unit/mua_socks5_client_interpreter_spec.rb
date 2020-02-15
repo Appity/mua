@@ -16,7 +16,7 @@ RSpec.describe Mua::SOCKS5::Client::Interpreter, type: :reactor, timeout: 5 do
         interpreter.run do |c, s, *ev|
           p([ s.name, ev ]) if (ENV['DEBUG'])
         end
-      end.wait
+      end
 
       reactor.async do
         read = io.read_exactly(3).unpack('C3')
@@ -58,7 +58,7 @@ RSpec.describe Mua::SOCKS5::Client::Interpreter, type: :reactor, timeout: 5 do
           interpreter.run do |c, s, *ev|
             p([ s.name, ev ]) if (ENV['DEBUG'])
           end
-        end.wait
+        end
 
         reactor.async do |task|
           read = io.read_exactly(3).unpack('C3')
@@ -104,7 +104,7 @@ RSpec.describe Mua::SOCKS5::Client::Interpreter, type: :reactor, timeout: 5 do
         interpreter.run do |c, s, *ev|
           p([ s.name, ev ]) if (ENV['DEBUG'])
         end
-      end.wait
+      end
 
       reactor.async do |task|
         read = io.read_exactly(3).unpack('C3')

@@ -11,7 +11,7 @@ RSpec.describe Mua::SOCKS5::Server::Interpreter, type: :reactor, timeout: 5 do
         interpreter.run do |c, s, *ev|
           p([ s.name, ev ]) if (ENV['DEBUG'])
         end
-      end.wait
+      end
 
       reactor.async do |task|
         io.write([ 5, 2, 0, 1 ].pack('C4'))

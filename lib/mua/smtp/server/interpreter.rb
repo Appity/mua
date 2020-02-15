@@ -215,6 +215,12 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
     context.reply("500 Invalid or incomplete command")
   end
 
+  rescue_from(Errno::EPIPE) do |context|
+    # Connection died.
+    context.input.close
+    context.transition!(state: :finished)
+  end
+
   rescue_from(Errno::ECONNRESET) do |context|
     context.transition!(state: :finished)
   end

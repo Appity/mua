@@ -86,6 +86,7 @@ messages = [ ]
 args.each do |path|
   samples(path, shuffle: options[:shuffle], limit: options[:limit], recursive: options[:recursive]) do |f|
     messages << {
+      id: File.basename(f),
       name: f.delete_prefix(Dir.pwd + '/'),
       data: File.read(f).gsub(/\r?\n/, "\r\n")
     }
@@ -106,24 +107,32 @@ Async do |reactor|
   client = Mua::SMTP::Client.new(options) do |context, state, event, *args|
     next unless (options[:verbose])
 
-    puts('%s> %s' % [ context.remote_addr, event ])
+    puts('%s:%d> %s %s %s' % [
+      context.smtp_host,
+      context.smtp_port,
+      state.name,
+      event,
+      args.any? ? args.inspect : ''
+    ])
   end
 
   deliveries = messages.map do |message|
     if (options[:verbose])
-      puts message[:name]
+      puts '%s>> Queued message' % [ message[:id] ]
     end
 
     client.deliver!(
+      id: message[:id],
       mail_from: 'test@pistachio.email',
       rcpt_to: 'test@pistachio.email',
       data: message[:data]
     )
   end
 
-  client.quit!
-
   deliveries.map!(&:wait)
+
+  p '*** quitter'
+  client.quit!
 
   deliveries.group_by(&:delivered?).each do |delivered, list|
     puts '%5.1f%% %s' % [
@@ -131,7 +140,7 @@ Async do |reactor|
       delivered ? 'Delivered' : 'Not Delivered'
     ]
   end
-end
+end.wait
 
 if (options[:stopwatch])
   delta = Time.now - start

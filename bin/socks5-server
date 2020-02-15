@@ -46,7 +46,7 @@ Async do
 
   server = Mua::SOCKS5::Server.new(timeout: options[:timeout]) do |context, state, event, *args|
     if (options[:verbose])
-      puts('%s> %s:%s' % [ context.remote_addr, state.name, event, args ])
+      puts('%s> %s %s' % [ context.remote_addr, state.name, event, args ])
     end
   end
 

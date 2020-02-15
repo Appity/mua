@@ -144,6 +144,7 @@ class Mua::State
     transition
 
   rescue Exception => e
+    # FIX: Parent may have an exception handler too.
     if (handler = @exception_handlers[e.class])
       handler.call(context, e)
     else
@@ -157,8 +158,12 @@ class Mua::State
     loop do
       begin
         branch, *args = @parser&.call(context)
-        
+
         redo if (branch == Mua::Token::Redo)
+
+      rescue Async::Wrapper::Cancelled
+        events&.call(context, self, :cancelled)
+        break
       end
 
       if (branch)
@@ -190,9 +195,6 @@ class Mua::State
 
       break if (step or context.terminated?)
     end
-
-  rescue Async::Wrapper::Cancelled
-    context.terminated!
   end
 
   def arity

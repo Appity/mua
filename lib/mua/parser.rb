@@ -7,19 +7,20 @@ module Mua::Parser
     if (line)
       if (block)
         -> (context) do
-          return if (context.input.eof?)
+          read = context.input.gets(separator, chomp: chomp)
+          read and block.call(context, read)
 
-          block.call(context, context.input.gets(separator, chomp: chomp))
-
+        rescue EOFError
+          nil
         rescue Async::TimeoutError
           block.call(Mua::Token::Timeout)
         end
       else
         -> (context) do
-          return if (context.input.eof?)
-
           context.input.gets(separator, chomp: chomp)
 
+        rescue EOFError
+          nil
         rescue Async::TimeoutError
           Mua::Token::Timeout
         end
@@ -27,17 +28,16 @@ module Mua::Parser
     elsif (match)
       if (block)
         -> (context) do
-          return if (context.input.eof?)
+          read = context.input.read_until(match, chomp: chomp)
+          read and block.call(context, read)
 
-          block.call(context, context.input.read_until(match, chomp: chomp))
-
+        rescue EOFError
+          nil
         rescue Async::TimeoutError
           block.call(Mua::Token::Timeout)
         end
       else
         -> (context) do
-          return if (context.input.eof?)
-
           context.input.read_until(match, chomp: chomp)
 
         rescue Async::TimeoutError
@@ -48,19 +48,20 @@ module Mua::Parser
       if (unpack)
         if (block)
           -> (context) do
-            return if (context.input.eof?)
+            read = context.input.read_exactly(exactly)
+            read and block.call(context, *read.unpack(unpack))
   
-            block.call(context, *context.input.read_exactly(exactly).unpack(unpack))
-  
+          rescue EOFError
+            nil
           rescue Async::TimeoutError
             block.call(Mua::Token::Timeout)
           end
         else
           -> (context) do
-            return if (context.input.eof?)
-  
             context.input.read_exactly(exactly).unpack(unpack)
   
+          rescue EOFError
+            nil
           rescue Async::TimeoutError
             Mua::Token::Timeout
           end
@@ -68,19 +69,20 @@ module Mua::Parser
       else
         if (block)
           -> (context) do
-            return if (context.input.eof?)
+            read = context.input.read_exactly(exactly)
+            read and block.call(context, read)
   
-            block.call(context, context.input.read_exactly(exactly))
-  
+          rescue EOFError
+            nil
           rescue Async::TimeoutError
             block.call(Mua::Token::Timeout)
           end
         else
           -> (context) do
-            return if (context.input.eof?)
-  
             context.input.read_exactly(exactly)
   
+          rescue EOFError
+            nil
           rescue Async::TimeoutError
             Mua::Token::Timeout
           end

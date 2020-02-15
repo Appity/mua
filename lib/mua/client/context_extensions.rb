@@ -40,7 +40,10 @@ module Mua::Client::ContextExtensions
     if (self.connected?)
       self.delivery_queue << delivery
 
-      self.force_transition!(state: :deliver, from: :ready)
+      if (self.state == :ready)
+        # Force re-entry to begin sending queued messages
+        self.interrupt_read!(state: :ready)
+      end
     else
       delivery.resolve(
         Mua::Client::DeliveryResult.new(
@@ -105,12 +108,13 @@ module Mua::Client::ContextExtensions
   def quit!
     self.close_requested!
 
-    self.force_transition!(state: :quit, from: :ready)
+    if (self.state == :ready)
+      self.interrupt_read!(state: :quit)
+    end
   end
 
-  def force_transition!(state:, from: nil)
+  def interrupt_read!(state: nil)
     @state_target = state
-
     self.read_task&.stop
   end
 

@@ -68,9 +68,9 @@ class Mua::SOCKS5::Client
         interpreter.context.smtp_host = @smtp_host
         interpreter.context.smtp_port = @smtp_port
         interpreter.context.reactor = Async::Task.current
-      end.run.each do |*e|
+      end.run do |*e|
         yield(*e) if (block_given?)
-      end
+      end.wait
     end
   end
 end

@@ -10,6 +10,18 @@ RSpec.describe Mua::Parser do
       expect(parser.call(context)).to eq('random-con')
     end
 
+    it 'can emit a reader for exact lengths that works independently with a block' do
+      parser = Mua::Parser.read_stream(exactly: 5) do |context, line|
+        line.bytes
+      end
+
+      context = MockStream.context('abcdefghik')
+
+      expect(parser.call(context)).to eq([ 97, 98, 99, 100, 101 ])
+      expect(parser.call(context)).to eq([ 102, 103, 104, 105, 107 ])
+      expect(parser.call(context)).to eq(nil)
+    end
+
     it 'can emit a reader for exact length that wraps a block' do
       parser = Mua::Parser.read_stream(exactly: 10) do |_context, input|
         input.upcase
@@ -30,6 +42,18 @@ RSpec.describe Mua::Parser do
       expect(parser.call(context)).to eq(nil)
     end
 
+    it 'can emit a reader for matches' do
+      parser = Mua::Parser.read_stream(match: "\r\n", chomp: true) do |context, line|
+        [ line.split('|') ]
+      end
+
+      context = MockStream.context("a|b\r\nc|d\r\n")
+
+      expect(parser.call(context)).to eq([ %w[ a b ] ])
+      expect(parser.call(context)).to eq([ %w[ c d ] ])
+      expect(parser.call(context)).to eq(nil)
+    end
+
     it 'can emit a reader for matches that chomps by default' do
       parser = Mua::Parser.read_stream(match: "\0")
 
@@ -42,7 +66,7 @@ RSpec.describe Mua::Parser do
 
     it 'can emit a reader for matches that takes a block' do
       parser = Mua::Parser.read_stream(match: "\0") do |_context, input|
-        input&.chomp&.upcase
+        input.chomp.upcase
       end
 
       context = MockStream.context("random\0content\0")
@@ -77,7 +101,7 @@ RSpec.describe Mua::Parser do
 
     it 'can emit a reader for lines that takes a block' do
       parser = Mua::Parser.read_stream(line: true) do |_context, input|
-        input&.chomp&.upcase
+        input.chomp.upcase
       end
 
       context = MockStream.context("random\ncontent\n")
@@ -108,7 +132,7 @@ RSpec.describe Mua::Parser do
 
       context = MockStream.context([ 5, 1, 1 ].pack('CCxC'))
 
-      expect { parser.call(context) }.to raise_exception(EOFError)
+      expect(parser.call(context)).to eq(nil)
     end
   end
 end

@@ -11,8 +11,10 @@ Mua::SOCKS5::Server::Context = Mua::State::Context.define(
   :target_addr_type,
   :target_port,
   :target_stream,
-  :auth_methods,
   :event,
+  auth_methods: {
+    default: -> { Set.new }
+  },
   id: {
     default: -> { SecureRandom.uuid }
   },

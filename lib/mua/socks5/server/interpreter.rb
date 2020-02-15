@@ -178,7 +178,7 @@ Mua::SOCKS5::Server::Interpreter = Mua::Interpreter.define(
 
   state(:connection_error) do
     enter do |context|
-      context.io.close
+      context.input.close
       context.transition!(state: :finished)
     end
   end

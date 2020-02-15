@@ -40,6 +40,32 @@ RSpec.describe Mua::SMTP::Client::Interpreter, type: [ :interpreter, :reactor ],
     end
   end
 
+  it 'supports multi-line ESMTP banners' do
+    with_interpreter(ClientInterpreter) do |context, io|
+      expect(context.state).to eq(:smtp_connect)
+
+      io.puts('220-mail.example.com ESMTP Example')
+      io.puts('220-Wow this is a long banner.')
+      io.puts('220-Will it ever end?')
+      io.puts('220 Not to get too ridiculous.')
+
+      expect(io.gets).to eq('EHLO localhost')
+      expect(context.state).to eq(:ehlo)
+
+      io.puts('250-Yo.')
+      io.puts('250-AUTH PLAIN')
+      io.puts('250-SIZE 1024')
+      io.puts('250 OK')
+
+      reactor.sleep(0.01)
+      expect(context.state).to eq(:ready)
+
+      io.puts('420 Too slow, test over.')
+
+      io.close_write
+    end
+  end
+
   context 'has pre-defined SMTP dialog tests' do
     Dir.glob(File.expand_path('../smtp/client-dialog/*.yml', __dir__)).each do |path|
       script = YAML.load(File.open(path))

@@ -40,28 +40,37 @@ class Mua::State::Machine < Mua::State
 
   def run_interior(context, step: false, &events)
     loop do
-      transition = nil
+      begin
+        transition = nil
 
-      unless (context.state)
-        context.terminated!
+        unless (context.state)
+          context.terminated!
 
-        break
+          break
+        end
+
+        case (result = @dispatcher.call(context, context.state, &events))
+        when Mua::State::Transition
+          transition = result
+
+          context.state = transition.state
+          events&.call(context, self, :transition, context.state)
+
+          break result.deparent! if (result.parent)
+        end
+
+        # Break if in single step mode, context has terminated, or the state
+        # failed to transition to something else, which is a dead-end state
+        # that would otherwise spin forever.
+        break if (step or context.terminated? or !transition)
+
+      rescue Exception => e
+        if (handler = @exception_handlers[e.class])
+          handler.call(context, e)
+        else
+          raise e
+        end
       end
-
-      case (result = @dispatcher.call(context, context.state, &events))
-      when Mua::State::Transition
-        transition = result
-
-        context.state = transition.state
-        events&.call(context, self, :transition, context.state)
-
-        break result.deparent! if (result.parent)
-      end
-
-      # Break if in single step mode, context has terminated, or the state
-      # failed to transition to something else, which is a dead-end state
-      # that would otherwise spin forever.
-      break if (step or context.terminated? or !transition)
     end
   end
 

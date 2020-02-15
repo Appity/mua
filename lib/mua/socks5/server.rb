@@ -54,7 +54,7 @@ class Mua::SOCKS5::Server
     end
   end
 
-  def start!(&block)
+  def start!(&events)
     @endpoint = Async::IO::Endpoint.tcp(@bind, @port)
 
     @endpoint.bind do |server, task|
@@ -62,17 +62,27 @@ class Mua::SOCKS5::Server
 
       server.accept_each do |peer|
         peer.timeout = @timeout
+        interpreter = nil
 
         @interpreter.new(
           Async::IO::Stream.new(peer)
-        ) do |interpreter|
+        ) do |connected|
+          interpreter = connected
           interpreter.context.reactor = Async::Task.current
           interpreter.context.assign_remote_ip!
-        end.run.each do |*e|
-          yield(*e) if (block_given?)
-        end
+
+          events&.call(interpreter.context, self, :connected)
+        end.run do |*e|
+          events&.call(*e)
+        end.wait
+
+        events&.call(interpreter.context, self, :terminated)
       end
     end
+  end
+
+  def name
+    self.class.name
   end
 end
 

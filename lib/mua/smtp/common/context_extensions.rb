@@ -8,17 +8,25 @@ module Mua
           # REFACTOR: There's probably a better way to handle this than
           #           by creating a task per readline operation but it needs
           #           to be an interruptable operation.
-          self.read_task = Async::Task.current.with_timeout(self.timeout) do
-          # self.read_task = Async do
-              if (line = self.input.gets)
-              yield(line.chomp)
-            elsif (@state_target)
-              transition!(state: @state_target)
-            end
+      
+          # self.read_task = Async::Task.current.with_timeout(self.timeout) do
+          self.read_task = Async do
+            line = self.input.gets
+
+            line and yield(line.chomp)
           end
+
+          self.read_task.wait
       
           # FIX: Handle Async read interruptions
       
+        rescue Async::Wrapper::Cancelled
+          @state_target and context.transition!(state: @state_target).tap do
+            @state_target = nil
+          end or Mua::Token::Redo
+        rescue Async::TimeoutError
+          # Dead read, handle as if the thing's closed.
+          nil
         ensure
           self.read_task = nil
           @state_target = nil

@@ -57,7 +57,7 @@ begin
       timeout: options[:timeout]
     ) do |context, state, event, *args|
       if (options[:verbose])
-        puts('%s> %s' % [ context.remote_addr, event ])
+        puts('%s> %s %s' % [ context.remote_addr, state.name, event ])
       end
 
       case (event)

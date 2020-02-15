@@ -59,23 +59,30 @@ else
   exit(-1)
 end
 
-Async do |reactor|
-  options[:reactor] = reactor
+begin
+  Async do |reactor|
+    options[:reactor] = reactor
 
-  oslice = options.slice(
-    :timeout,
-    :smtp_host,
-    :smtp_port,
-    :proxy_host,
-    :proxy_port
-  )
+    connect_args = options.slice(
+      :timeout,
+      :smtp_host,
+      :smtp_port,
+      :proxy_host,
+      :proxy_port
+    )
 
-  client = Mua::SOCKS5::Client.new(oslice) do |context, state, event, *args|
-    next unless (options[:verbose])
+    client = Mua::SOCKS5::Client.new(connect_args) do |context, state, event, *args|
+      next unless (options[:verbose])
 
-    case (context)
-    when Mua::State::Context
-      puts('%s> %s.%s' % [ context.smtp_addr, state.name, event ])
+      case (context)
+      when Mua::State::Context
+        puts('%s> %s.%s' % [ context.smtp_addr, state.name, event ])
+      end
     end
   end
+
+rescue Interrupt
+  # Expected exit condition, just shut down.
+  puts('Interrupt received. Terminating.')
+  exit(0)
 end

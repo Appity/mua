@@ -22,7 +22,6 @@ class Mua::SMTP::Client
   # == Instance Methods =====================================================
   
   def initialize(**options, &block)
-    @reactor = options[:reactor]
     @context = Mua::Client::Context.new(DEFAULTS.merge(options))
     @endpoint =
       if (@context.proxy?)
@@ -33,16 +32,18 @@ class Mua::SMTP::Client
 
     @signal = Async::Condition.new
 
-    @task = @reactor.async do |task|
+    @task = Async do |task|
       begin
         @endpoint.connect do |peer|
+          peer.timeout = @context.timeout
+
           @context.input = Async::IO::Stream.new(peer)
 
           @interpreter = Mua::SMTP::Client::ProxyAwareInterpreter.new(@context)
 
           @signal.signal
 
-          @interpreter.run!(&block)
+          @interpreter.run(&block)
         end
 
       rescue Exception => e
@@ -52,7 +53,7 @@ class Mua::SMTP::Client
 
         @signal.signal
 
-        @interpreter.run!(&block)
+        @interpreter.run(&block)
       end
     end
 

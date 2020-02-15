@@ -54,7 +54,7 @@ module MockStream
 
     Async do
       thread = Thread.new do
-        interpreter.run!
+        interpreter.run
       end
 
       yield(interpreter, context, io)

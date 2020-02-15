@@ -373,8 +373,6 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
         result_message: 'Connection was terminated'
       )
 
-      context.input = nil
-
       context.parent_transition!(state: :smtp_finished)
     end
   end

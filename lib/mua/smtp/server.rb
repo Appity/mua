@@ -7,15 +7,15 @@ class Mua::SMTP::Server
   BIND_DEFAULT = '127.0.0.1'.freeze
   BACKLOG_DEFAULT = 128
   TIMEOUT_DEFAULT = 30
-
+  
   EVENTS_PROPAGATED = %i[
     connected
     deliver_accept
     deliver_reject
     disconnected
     timeout
-  ]
-  
+  ].freeze
+
   # == Extensions ===========================================================
   
   # == Properties ===========================================================
@@ -51,11 +51,11 @@ class Mua::SMTP::Server
           Async::IO::Stream.new(peer)
         ) do |interpreter|
           interpreter.context.assign_remote_ip!
-        end.run.select do |_c, _s, event, *args|
-          EVENTS_PROPAGATED.include?(event)
-        end.each do |e|
-          yield(e) if (block_given?)
-        end
+        end.run do |c, s, event, *args|
+          if (EVENTS_PROPAGATED.include?(event))
+            yield(c s, event, *args)
+          end
+        end.wait
       end
     end
   end

@@ -15,7 +15,7 @@ module Mua::Client::ContextExtensions
   end
 
   def connected?
-    !!self.input
+    !self.closed? and !!self.input
   end
 
   def auth_required?

@@ -12,7 +12,7 @@ RSpec.describe Mua::SMTP::Server, type: :reactor, timeout: 1 do
         smtp_host: 'localhost',
         smtp_port: 8025
       ) do |c,s,*ev|
-        puts '%s %s' % [ s.name, ev.inspect ] if (ENV['DEBUG'])
+        puts '%s> %s %s' % [ c.remote_addr, s.name, ev.inspect ] if (ENV['DEBUG'])
       end
     end
 

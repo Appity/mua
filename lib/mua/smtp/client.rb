@@ -38,6 +38,8 @@ class Mua::SMTP::Client
           peer.timeout = @context.timeout
 
           @context.input = Async::IO::Stream.new(peer)
+          @context.assign_local_ip!
+          @context.assign_remote_ip!
 
           @interpreter = Mua::SMTP::Client::ProxyAwareInterpreter.new(@context)
 

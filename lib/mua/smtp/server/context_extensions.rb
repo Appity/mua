@@ -15,22 +15,6 @@ module Mua::SMTP::Server::ContextExtensions
     @banner = str
   end
 
-  def remote_addr
-    if (remote_port)
-      '%s:%d' % [ remote_ip, remote_port ]
-    else
-      remote_ip
-    end
-  end
-
-  def local_addr
-    if (local_port)
-      '%s:%d' % [ local_ip, local_port ]
-    else
-      local_ip
-    end
-  end
-
   def tls_configured?
     self.tls_key_path and self.tls_cert_path
   end

@@ -12,8 +12,10 @@ Mua::SMTP::Client::ProxyAwareInterpreter = Mua::Interpreter.define(
         context.transition!(state: :terminated)
       else
         if (context.proxy?)
+          context.connection_stage = :socks5
           context.transition!(state: :proxy_connect)
         else
+          context.connection_stage = :smtp
           context.transition!(state: :smtp_connect)
         end
       end
@@ -24,6 +26,7 @@ Mua::SMTP::Client::ProxyAwareInterpreter = Mua::Interpreter.define(
 
   state(:proxy_connected) do
     enter do |context|
+      context.connection_stage = :smtp
       context.transition!(state: :smtp_connect)
     end
   end

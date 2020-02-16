@@ -16,6 +16,11 @@ Mua::Client::Context = Mua::State::Context.define(
   :reply_code,
   :reply_message,
   :exception,
+  :connection_stage,
+  :local_ip,
+  :local_port,
+  :remote_ip,
+  :remote_port,
   reply_buffer: {
     default: -> { [ ] }
   },
@@ -52,6 +57,10 @@ Mua::Client::Context = Mua::State::Context.define(
     default: nil
   },
   close_requested: {
+    boolean: true,
+    default: false
+  },
+  closed: {
     boolean: true,
     default: false
   },

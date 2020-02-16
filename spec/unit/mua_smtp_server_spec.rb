@@ -10,8 +10,10 @@ RSpec.describe Mua::SMTP::Server, type: :reactor, timeout: 1 do
     clients = count.times.map do
       Mua::SMTP::Client.new(
         smtp_host: 'localhost',
-        smtp_port: 1025
-      )
+        smtp_port: 8025
+      ) do |c,s,*ev|
+        puts '%s %s' % [ s.name, ev.inspect ] if (ENV['DEBUG'])
+      end
     end
 
     reactor.sleep(0.1)

@@ -46,6 +46,7 @@ options = {
   timeout: 30,
   silent: false,
   debug: false,
+  'smtp-port': 25,
   'proxy-port': 1080,
   recursive: false,
   'dry-run': false
@@ -104,6 +105,16 @@ start = Time.now.utc
 Async do |reactor|
   options[:reactor] = reactor
 
+  if (options[:verbose])
+    via_proxy = options[:proxy_host] && (' through %s:%s' % [ options[:proxy_host], options[:proxy_port] ])
+
+    puts('%s:%d> Ready to initiate connection%s' % [
+      options[:smtp_host],
+      options[:smtp_port],
+      via_proxy
+    ])
+  end
+
   client = Mua::SMTP::Client.new(options) do |context, state, event, *args|
     next unless (options[:verbose])
 
@@ -131,7 +142,6 @@ Async do |reactor|
 
   deliveries.map!(&:wait)
 
-  p '*** quitter'
   client.quit!
 
   deliveries.group_by(&:delivered?).each do |delivered, list|

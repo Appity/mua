@@ -58,6 +58,14 @@ module Mua
           self.input.close
         end
 
+        def remote_addr
+          if (remote_port)
+            '%s:%d' % [ remote_ip, remote_port ]
+          else
+            remote_ip
+          end
+        end
+
         def assign_remote_ip!
           io = self.input.io
 
@@ -67,6 +75,14 @@ module Mua
           when Socket::AF_UNIX
             self.remote_ip = 'localhost'
             self.remote_port = nil
+          end
+        end
+
+        def local_addr
+          if (local_port)
+            '%s:%d' % [ local_ip, local_port ]
+          else
+            local_ip
           end
         end
 

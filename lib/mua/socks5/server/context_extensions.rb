@@ -3,22 +3,6 @@ module Mua::SOCKS5::Server::ContextExtensions
     true
   end
 
-  def remote_addr
-    if (remote_port)
-      '%s:%d' % [ remote_ip, remote_port ]
-    else
-      remote_ip
-    end
-  end
-
-  def local_addr
-    if (local_port)
-      '%s:%d' % [ local_ip, local_port ]
-    else
-      local_ip
-    end
-  end
-
   def write_proxy_reply(code)
     case (self.target_addr_type)
     when :ipv4

@@ -23,12 +23,16 @@ class Mua::SMTP::Client
   
   def initialize(**options, &block)
     @context = Mua::Client::Context.new(DEFAULTS.merge(options))
-    @endpoint =
-      if (@context.proxy?)
-        Async::IO::Endpoint.tcp(@context.proxy_host, @context.proxy_port)
-      else
-        Async::IO::Endpoint.tcp(@context.smtp_host, @context.smtp_port)
-      end
+
+    if (@context.proxy?)
+      @context.remote_ip = @context.proxy_host
+      @context.remote_port = @context.proxy_port
+    else
+      @context.remote_ip = @context.smtp_host
+      @context.remote_port = @context.smtp_port
+    end
+
+    @endpoint = Async::IO::Endpoint.tcp(@context.remote_ip, @context.remote_port)
 
     @signal = Async::Condition.new
 

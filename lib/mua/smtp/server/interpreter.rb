@@ -6,7 +6,7 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
   name: 'Mua::SMTP::Server::Interpreter',
   context: Mua::SMTP::Server::Context
 ) do
-  parser(line: true, separator: Mua::Constants::CRLF, chomp: true)
+  parser(line: true, separator: Mua::Constants::LF, chomp: true)
 
   state(:initialize) do
     enter do |context|

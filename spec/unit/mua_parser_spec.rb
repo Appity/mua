@@ -66,7 +66,7 @@ RSpec.describe Mua::Parser do
 
     it 'can emit a reader for matches that takes a block' do
       parser = Mua::Parser.read_stream(match: "\0") do |_context, input|
-        input.chomp.upcase
+        input.upcase
       end
 
       context = MockStream.context("random\0content\0")

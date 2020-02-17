@@ -66,11 +66,11 @@ module Mua::SMTP::Server::ContextExtensions
 
     @tls_context.add_certificate(cert, key)
 
-    self.input = Async::IO::SSLSocket.new(self.input.io, @tls_context)
-    yield(self.input) if (block_given?)
-    self.input.accept
+    tls_socket = Async::IO::SSLSocket.new(self.input.io, @tls_context)
+    yield(tls_socket) if (block_given?)
+    tls_socket.accept
 
-    self.input = Async::IO::Stream.new(self.input)
+    self.input = Async::IO::Stream.new(tls_socket)
 
     true
   end

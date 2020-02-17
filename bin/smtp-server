@@ -34,6 +34,9 @@ end
 program.parse!(ARGV, into: options)
 
 if (options[:debug])
+  if (options[:verbose] and !options[:silent])
+    puts 'DEBUG: Adding debug shim to expose communications'
+  end
   Async::IO::Stream.prepend(Mua::Debug::StreamExtensions)
 end
 

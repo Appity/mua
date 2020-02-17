@@ -7,7 +7,7 @@ module Mua::Parser
     if (line)
       if (block)
         -> (context) do
-          read = context.input.gets(separator, chomp: chomp)
+          read = context.input.gets(separator, chomp: chomp).tap { |r| r&.chomp! if (chomp) }
           read and block.call(context, read)
 
         rescue EOFError
@@ -17,7 +17,7 @@ module Mua::Parser
         end
       else
         -> (context) do
-          context.input.gets(separator, chomp: chomp)
+          context.input.gets(separator, chomp: chomp).tap { |r| r&.chomp! if (chomp) }
 
         rescue EOFError
           nil
@@ -28,7 +28,7 @@ module Mua::Parser
     elsif (match)
       if (block)
         -> (context) do
-          read = context.input.read_until(match, chomp: chomp)
+          read = context.input.read_until(match, chomp: chomp).tap { |r| r&.chomp! if (chomp) }
           read and block.call(context, read)
 
         rescue EOFError
@@ -38,7 +38,7 @@ module Mua::Parser
         end
       else
         -> (context) do
-          context.input.read_until(match, chomp: chomp)
+          context.input.read_until(match, chomp: chomp).tap { |r| r&.chomp! if (chomp) }
 
         rescue Async::TimeoutError
           Mua::Token::Timeout
@@ -48,7 +48,7 @@ module Mua::Parser
       if (unpack)
         if (block)
           -> (context) do
-            read = context.input.read_exactly(exactly)
+            read = context.input.read_exactly(exactly).tap { |r| r&.chomp! if (chomp) }
             read and block.call(context, *read.unpack(unpack))
   
           rescue EOFError
@@ -58,7 +58,7 @@ module Mua::Parser
           end
         else
           -> (context) do
-            context.input.read_exactly(exactly).unpack(unpack)
+            context.input.read_exactly(exactly).tap { |r| r&.chomp! if (chomp) }.unpack(unpack)
   
           rescue EOFError
             nil
@@ -69,7 +69,7 @@ module Mua::Parser
       else
         if (block)
           -> (context) do
-            read = context.input.read_exactly(exactly)
+            read = context.input.read_exactly(exactly).tap { |r| r&.chomp! if (chomp) }
             read and block.call(context, read)
   
           rescue EOFError
@@ -79,7 +79,7 @@ module Mua::Parser
           end
         else
           -> (context) do
-            context.input.read_exactly(exactly)
+            context.input.read_exactly(exactly).tap { |r| r&.chomp! if (chomp) }
   
           rescue EOFError
             nil

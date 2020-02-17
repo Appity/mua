@@ -149,10 +149,19 @@ module Mua::Client::ContextExtensions
 
   def starttls!
     @tls_context = OpenSSL::SSL::SSLContext.new
+    self.input.flush
+    io = self.input.io
 
-    self.input = Async::IO::SSLSocket.new(self.input.io, @tls_context)
+    tls_socket = Async::IO::SSLSocket.new(io, @tls_context)
+
+    self.input = Async::IO::Stream.new(tls_socket)
     yield(self.input) if (block_given?)
+    self.input.flush
 
     true
+  end
+
+  def tls_engaged?
+    self.input.io.is_a?(Async::IO::SSLSocket)
   end
 end

@@ -27,7 +27,7 @@ class Mua::SMTP::Server
   
   # == Instance Methods =====================================================
 
-  def initialize(interpreter: nil, bind: nil, port: nil, start: true, tls_key_path: nil, tls_cert_path: nil, tls_initial: false, timeout: nil, &block)
+  def initialize(interpreter: nil, bind: nil, port: nil, start: true, tls_key_path: nil, tls_cert_path: nil, tls_initial: false, timeout: nil, &events)
     @interpreter = interpreter || Mua::SMTP::Server::Interpreter
     @bind = bind || BIND_DEFAULT
     @port = port || PORT_DEFAULT
@@ -38,7 +38,7 @@ class Mua::SMTP::Server
     @tls_initial = !!tls_initial
 
     if (start)
-      self.start!(&block)
+      self.start!(&events)
     end
   end
 
@@ -50,7 +50,7 @@ class Mua::SMTP::Server
     @tls_initial
   end
 
-  def start!(&block)
+  def start!(&events)
     @endpoint = Async::IO::Endpoint.tcp(@bind, @port)
 
     @endpoint.bind do |server, task|
@@ -63,14 +63,13 @@ class Mua::SMTP::Server
           # FIX: Force TLS if necessary here with if (tls_initial?)
           Async::IO::Stream.new(peer)
         ) do |interpreter|
+          interpreter.context.events = events
           interpreter.context.assign_remote_ip!
           interpreter.context.tls_advertise = true
           interpreter.context.tls_key_path = @tls_key_path
           interpreter.context.tls_cert_path = @tls_cert_path
         end.run do |c, s, event, *args|
-          if (EVENTS_PROPAGATED.include?(event))
-            yield(c s, event, *args)
-          end
+          events&.call(c, s, event, *args)
         end
       end
     end

@@ -88,6 +88,17 @@ RSpec.describe Mua::Parser do
       expect(context.input).to be_eof
     end
 
+    it 'can emit a reader for LF lines with CRLF chomping' do
+      parser = Mua::Parser.read_stream(line: true, separator: Mua::Constants::LF, chomp: true)
+
+      context = MockStream.context("random\r\ncontent\r\n")
+
+      expect(parser.call(context)).to eq('random')
+      expect(parser.call(context)).to eq('content')
+      expect(parser.call(context)).to eq(nil)
+      expect(context.input).to be_eof
+    end
+
     it 'can emit a reader for lines that chomps by default' do
       parser = Mua::Parser.read_stream(line: true)
 

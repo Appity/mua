@@ -96,7 +96,7 @@ class Mua::State::Context
 
   # Used to relay events to the event receiver, if any is defined
   def event!(*args)
-    self.events&.call(*args)
+    @events&.call(*args)
   end
 end
 

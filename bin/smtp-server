@@ -67,6 +67,10 @@ begin
       end
 
       case (event)
+      when :connected
+        puts('%s> Connection received' % [
+          context.remote_addr
+        ])
       when :deliver_accept
         message = args[0]
         received[context.id][:messages] += 1

@@ -53,7 +53,8 @@ module Mua::SMTP::Server::ContextExtensions
     self.input.flush
     self.input.close_write
 
-    # FIX: This may need to actually close-close on a TCP socket
+  rescue Errno::ENOTCONN
+    # Connection is already closed, so this can be ignored.
   end
 
   def starttls!
@@ -66,12 +67,19 @@ module Mua::SMTP::Server::ContextExtensions
 
     @tls_context.add_certificate(cert, key)
 
-    tls_socket = Async::IO::SSLSocket.new(self.input.io, @tls_context)
+    io = self.input.io
+    timeout, io.timeout = io.timeout, nil
+
+    tls_socket = Async::IO::SSLSocket.new(io, @tls_context)
     yield(tls_socket) if (block_given?)
-    tls_socket.accept
 
     self.input = Async::IO::Stream.new(tls_socket)
 
     true
+
+  rescue OpenSSL::SSL::SSLError
+    self.close!
+
+    false
   end
 end

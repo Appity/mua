@@ -1,6 +1,10 @@
 class Mua::State::Proxy
   # == Constants ============================================================
 
+  # == Properties ===========================================================
+
+  attr_reader :state
+
   # == Instance Methods =====================================================
   
   # Attaches to a given State object. If a block is given, the block is
@@ -18,6 +22,10 @@ class Mua::State::Proxy
     else
       raise ArgumentError, "Block should take 0..1 arguments"
     end
+  end
+
+  def name
+    @state.name
   end
   
   # Defines a preprocessor that runs after the enter phase but before parse

@@ -12,7 +12,7 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
     enter do |context|
       context.reply(context.banner)
 
-      context.event!(self, :connected)
+      context.event!(context, self, :connected)
 
       context.transition!(state: :reset)
     end
@@ -105,7 +105,7 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
         
         context.starttls! do |tls|
           # FIX: Configure with certificates from context
-        end
+        end or context.transition!(state: :finished)
       else
         context.reply("421 TLS not supported")
       end
@@ -148,11 +148,11 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
       if (accept)
         accept, message = context.receive_transaction(context.message)
 
-        context.event!(self, :deliver_accept, context.message, message)
+        context.event!(context, self, :deliver_accept, context.message, message)
         
         context.reply(message)
       else
-        context.event!(self, :deliver_reject, context.message, message)
+        context.event!(context, self, :deliver_reject, context.message, message)
 
         context.reply(message)
       end
@@ -195,7 +195,7 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
       context.reply("420 Idle connection closed")
 
       context.close!
-      context.event!(self, :timeout)
+      context.event!(context, self, :timeout)
 
       context.transition!(state: :finished)
     end
@@ -205,7 +205,7 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
     enter do |context|
       context.close!
 
-      context.event!(self, :disconnected)
+      context.event!(context, self, :disconnected)
     end
   end
 

@@ -36,6 +36,10 @@ Mua::Client::Context = Mua::State::Context.define(
   protocol: {
     default: :smtp
   },
+  tls_connect: {
+    default: false,
+    boolean: true
+  },
   tls_requested: {
     default: true,
     boolean: true

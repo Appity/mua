@@ -27,30 +27,30 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
   end
   
   state(:ready) do
-    interpret(/\A\s*EHLO\s+(\S+)\s*\z/) do |context, _, remote_host|
-      if (context.valid_hostname?(remote_host))
-        context.log(:debug, "#{context.remote_ip}:#{context.remote_port} to #{context.local_ip}:#{context.local_port} Accepting connection from #{remote_host}")
-        context.remote_host = remote_host
+    interpret(/\A\s*EHLO\s+(\S+)\s*\z/) do |context, _, helo_hostname|
+      if (context.valid_hostname?(helo_hostname))
+        context.log(:debug, "#{context.remote_ip}:#{context.remote_port} to #{context.local_ip}:#{context.local_port} Accepting connection from #{helo_hostname}")
+        context.helo_hostname = helo_hostname
 
-        context.reply("250-#{context.hostname} Hello #{context.remote_host} [#{context.remote_ip}]")
+        context.reply("250-#{context.hostname} Hello #{context.helo_hostname} [#{context.remote_ip}]")
         context.reply("250-AUTH PLAIN")
         context.reply("250-SIZE 35651584")
-        context.reply("250-STARTTLS") if (context.tls_configured?)
+        context.reply("250-STARTTLS") if (context.tls_configured? and context.tls_advertise?)
         context.reply("250 OK")
       else
-        context.log(:debug, "#{context.remote_ip}:#{context.remote_port} to #{context.local_ip}:#{context.local_port} Rejecting connection from #{remote_host} because of invalid FQDN")
+        context.log(:debug, "#{context.remote_ip}:#{context.remote_port} to #{context.local_ip}:#{context.local_port} Rejecting connection from #{helo_hostname} because of invalid FQDN")
         context.reply("504 Need fully qualified hostname")
       end
     end
 
-    interpret(/\A\s*HELO\s+(\S+)\s*\z/) do |context, _, remote_host|
-      if (context.valid_hostname?(remote_host))
-        context.log(:debug, "#{context.remote_ip}:#{context.remote_port} to #{context.local_ip}:#{context.local_port} Accepting connection from #{remote_host}")
-        context.remote_host = remote_host
+    interpret(/\A\s*HELO\s+(\S+)\s*\z/) do |context, _, helo_hostname|
+      if (context.valid_hostname?(helo_hostname))
+        context.log(:debug, "#{context.remote_ip}:#{context.remote_port} to #{context.local_ip}:#{context.local_port} Accepting connection from #{helo_hostname}")
+        context.helo_hostname = helo_hostname
 
-        context.reply("250 #{context.hostname} Hello #{context.remote_host} [#{context.remote_ip}]")
+        context.reply("250 #{context.hostname} Hello #{context.helo_hostname} [#{context.remote_ip}]")
       else
-        context.log(:debug, "#{context.remote_ip}:#{context.remote_port} to #{context.local_ip}:#{context.local_port} Rejecting connection from #{remote_host} because of invalid FQDN")
+        context.log(:debug, "#{context.remote_ip}:#{context.remote_port} to #{context.local_ip}:#{context.local_port} Rejecting connection from #{helo_hostname} because of invalid FQDN")
         context.reply("504 Need fully qualified hostname")
       end
     end
@@ -98,16 +98,14 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
     end
     
     interpret(/\A\s*STARTTLS\s*\z/) do |context|
-      if (context.tls?)
+      if (context.tls_engaged?)
         context.reply("454 TLS already started")
       elsif (context.tls_configured?)
         context.reply("220 TLS ready to start")
-        context.start_tls(
-          private_key_file: context.tls_key_path,
-          cert_chain_file: context.tls_cert_path
-        )
         
-        context.tls!
+        context.starttls! do |tls|
+          # FIX: Configure with certificates from context
+        end
       else
         context.reply("421 TLS not supported")
       end

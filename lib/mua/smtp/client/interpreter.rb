@@ -121,9 +121,7 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
     end
     
     interpret(220) do |context|
-      # FIX: Engage TLS
-      # context.start_tls
-      # @tls = true
+      context.starttls!
       
       case (context.protocol)
       when :esmtp

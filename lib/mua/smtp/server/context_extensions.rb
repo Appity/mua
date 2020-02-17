@@ -14,6 +14,10 @@ module Mua::SMTP::Server::ContextExtensions
   def banner=(str)
     @banner = str
   end
+  
+  def tls_engaged?
+    self.input.is_a?(Async::IO::SSLSocket)
+  end
 
   def tls_configured?
     self.tls_key_path and self.tls_cert_path
@@ -50,5 +54,24 @@ module Mua::SMTP::Server::ContextExtensions
     self.input.close_write
 
     # FIX: This may need to actually close-close on a TCP socket
+  end
+
+  def starttls!
+    @tls_context = OpenSSL::SSL::SSLContext.new
+
+    # FIX: Rescue if these things don't exist
+    # REFACTOR: Maybe want to have the key pre-loaded, avoid paths
+    cert = OpenSSL::X509::Certificate.new(File.read(self.tls_cert_path))
+    key = OpenSSL::PKey.read(File.read(self.tls_key_path))
+
+    @tls_context.add_certificate(cert, key)
+
+    self.input = Async::IO::SSLSocket.new(self.input.io, @tls_context)
+    yield(self.input) if (block_given?)
+    self.input.accept
+
+    self.input = Async::IO::Stream.new(self.input)
+
+    true
   end
 end

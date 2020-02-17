@@ -40,6 +40,19 @@ run `bundle exec rake release`, which will create a git tag for the version,
 push git commits and tags, and push the `.gem` file to
 [rubygems.org](https://rubygems.org).
 
+## Debugging
+
+### TLS Certificates and Connectivity
+
+The `openssl` command-line tool has features that make testing `STARTTLS`
+implemetations fairly straight-forward:
+
+```shell
+openssl s_client -connect localhost:1025 -starttls smtp
+```
+
+Where `localhost:1025` is the target server being tested.
+
 ## Contributing
 
 Bug reports and pull requests are welcome on GitHub at

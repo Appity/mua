@@ -27,8 +27,8 @@ program = OptionParser.new do |opts|
   opts.on('-s', '--silent', 'Suppress output')
   opts.on('-t', '--timeout TIMEOUT', 'Set SMTP command timeout (seconds)', Integer)
   opts.on('-r', '--random', 'Randomize behavior')
-
   opts.on('-l', '--listen LISTEN', 'Host/port to listen on (e.g. 127.0.0.1:1025')
+  opts.on('--cert CERT', 'Base path to TLS certicificate/key pair (minus .pem and .crt extensions)')
 end
 
 program.parse!(ARGV, into: options)
@@ -42,8 +42,13 @@ end
 
 options[:bind], options[:port] = options[:listen].split(':')
 
+if (options[:cert])
+  options[:tls_key_path] = options[:cert] + '.pem'
+  options[:tls_cert_path] = options[:cert] + '.crt'
+end
+
 begin
-  Async do
+  Async::Reactor.run do
     received = Hash.new do |h,k|
       h[k] = {
         messages: 0,
@@ -52,9 +57,7 @@ begin
     end
 
     server = Mua::SMTP::Server.new(
-      bind: options[:bind],
-      port: options[:port],
-      timeout: options[:timeout]
+      **options.slice(:bind, :port, :timeout, :tls_key_path, :tls_cert_path)
     ) do |context, state, event, *args|
       if (options[:verbose])
         puts('%s> %s %s' % [ context.remote_addr, state.name, event ])
@@ -82,6 +85,10 @@ begin
 
     unless (options[:silent])
       puts('SMTP server listening on %s:%d' % [ server.bind, server.port ])
+
+      if (server.tls_configured?)
+        puts('* TLS configured and STARTTLS advertised')
+      end
     end
   end
 

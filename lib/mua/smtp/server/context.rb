@@ -5,7 +5,7 @@ require_relative 'context_extensions'
 Mua::SMTP::Server::Context = Mua::State::Context.define(
   :read_task,
   :message,
-  :remote_host,
+  :helo_hostname,
   :smtp_username,
   :smtp_password,
   :tls_key_path,
@@ -29,7 +29,15 @@ Mua::SMTP::Server::Context = Mua::State::Context.define(
   protocol: {
     default: :esmtp
   },
-  tls: {
+  tls_initial: {
+    default: false,
+    boolean: true
+  },
+  tls_advertise: {
+    default: false,
+    boolean: true
+  },
+  tls_required: {
     default: false,
     boolean: true
   },

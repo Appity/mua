@@ -146,4 +146,13 @@ module Mua::Client::ContextExtensions
       @reply_message = nil
     end
   end
+
+  def starttls!
+    @tls_context = OpenSSL::SSL::SSLContext.new
+
+    self.input = Async::IO::SSLSocket.new(self.input.io, @tls_context)
+    yield(self.input) if (block_given?)
+
+    true
+  end
 end

@@ -35,7 +35,7 @@ Mua::Client::Context = Mua::State::Context.define(
     default: 'localhost'
   },
   protocol: {
-    default: :smtp
+    default: :esmtp
   },
   tls_connect: {
     default: false,

@@ -3,7 +3,7 @@ dialog:
 - recv: 220-verbose-mx.example.com SMTP Welcome to Example Corp.
 - recv: 220-This server has a huge banner for no particular reason.
 - recv: 220 If you have any complaints to postmaster@example.com
-- send: HELO example.test
+- send: EHLO example.test
 - recv: 250-verbose-mx.example.com at your service!
 - recv: 250-There are many things you can do here.
 - recv: 250-Actually.

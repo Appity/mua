@@ -22,7 +22,7 @@ RSpec.describe Mua::Client::Context, type: :reactor do
     expect(context.read_task).to be(nil)
     expect(context.service_extensions).to eq({ })
     expect(context.hostname).to eq('localhost')
-    expect(context.protocol).to be(:smtp)
+    expect(context.protocol).to be(:esmtp)
     expect(context).to_not be_tls_connect
     expect(context).to be_tls_requested
     expect(context).to_not be_tls_required

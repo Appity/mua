@@ -34,9 +34,8 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
 
         context.reply("250-#{context.hostname} Hello #{context.helo_hostname} [#{context.remote_ip}]")
         context.reply("250-AUTH PLAIN")
-        context.reply("250-SIZE 35651584")
         context.reply("250-STARTTLS") if (context.tls_configured? and context.tls_advertise?)
-        context.reply("250 OK")
+        context.reply("250 SIZE 35651584")
       else
         context.log(:debug, "#{context.remote_ip}:#{context.remote_port} to #{context.local_ip}:#{context.local_port} Rejecting connection from #{helo_hostname} because of invalid FQDN")
         context.reply("504 Need fully qualified hostname")

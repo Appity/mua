@@ -1,6 +1,6 @@
 name: connection rejected after HELO
 dialog:
 - recv: 220 mail.example.com SMTP Example
-- send: HELO localhost
+- send: EHLO localhost
 - recv: 420 Go away
 - send: QUIT

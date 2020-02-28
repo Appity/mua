@@ -42,10 +42,6 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
       context.smtp_banner = messages
       message_parts = messages[0].split(/\s+/)
       context.remote_host = message_parts.first
-      
-      if (messages[0].match(/\bESMTP\b/))
-        context.protocol = :esmtp
-      end
 
       context.transition!(state: context.protocol == :esmtp ? :ehlo : :helo)
     end

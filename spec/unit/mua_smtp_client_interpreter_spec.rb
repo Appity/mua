@@ -31,7 +31,7 @@ RSpec.describe Mua::SMTP::Client::Interpreter, type: [ :interpreter, :reactor ],
     with_interpreter(ClientInterpreter) do |context, io|
       expect(context.state).to eq(:smtp_connect)
       io.puts('220 mail.example.com SMTP Example')
-      expect(io.gets).to eq('HELO localhost')
+      expect(io.gets).to eq('EHLO localhost')
 
       expect(context.smtp_banner).to eq([ 'mail.example.com SMTP Example' ])
 
@@ -50,7 +50,7 @@ RSpec.describe Mua::SMTP::Client::Interpreter, type: [ :interpreter, :reactor ],
       io.puts('220-really')
       io.puts('220-really')
       io.puts('220 long')
-      expect(io.gets).to eq('HELO localhost')
+      expect(io.gets).to eq('EHLO localhost')
 
       expect(context.smtp_banner).to eq([ 
         'mail.example.com SMTP Example',

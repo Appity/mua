@@ -90,8 +90,11 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
           end
         end
 
-        if (value.length == 1)
+        case (value.length)
+        when 1
           value = value[0]
+        when 0
+          value = true
         end
 
         context.service_extensions[extension.downcase.to_sym] = value

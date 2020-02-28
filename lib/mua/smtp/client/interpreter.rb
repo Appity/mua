@@ -33,12 +33,13 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
 
   state(:smtp_connect) do
     enter do |context|
-      context.transition!(state: :greeting)
+      context.transition!(state: :banner)
     end
   end
 
-  state(:greeting) do
+  state(:banner) do
     interpret(220) do |context, messages|
+      context.smtp_banner = messages
       message_parts = messages[0].split(/\s+/)
       context.remote_host = message_parts.first
       
@@ -292,14 +293,10 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
     end
     
     default do |context, reply_code, reply_messages|
-      # handle_reply_continuation(reply_code, reply_message) do |reply_code, reply_message|
-      #   context_call(:after_message_sent, reply_code, reply_message)
-      # end
-
       context.message.reply_code = reply_code
       context.message.reply_message = reply_messages.join(' ')
 
-      # FIX: This needs to be a lot smarter
+      # FIX: This needs to be a lot smarter and interpret responses better
       context.message.state =
         case (reply_code)
         when 250

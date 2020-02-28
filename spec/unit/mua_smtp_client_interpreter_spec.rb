@@ -33,6 +33,33 @@ RSpec.describe Mua::SMTP::Client::Interpreter, type: [ :interpreter, :reactor ],
       io.puts('220 mail.example.com SMTP Example')
       expect(io.gets).to eq('HELO localhost')
 
+      expect(context.smtp_banner).to eq([ 'mail.example.com SMTP Example' ])
+
+      io.puts('420 Go away')
+      expect(io.gets).to eq('QUIT')
+
+      io.close_write
+    end
+  end
+
+  it 'supports unusual multi-line SMTP banners' do
+    with_interpreter(ClientInterpreter) do |context, io|
+      expect(context.state).to eq(:smtp_connect)
+      io.puts('220-mail.example.com SMTP Example')
+      io.puts('220-this is really')
+      io.puts('220-really')
+      io.puts('220-really')
+      io.puts('220 long')
+      expect(io.gets).to eq('HELO localhost')
+
+      expect(context.smtp_banner).to eq([ 
+        'mail.example.com SMTP Example',
+        'this is really',
+        'really',
+        'really',
+        'long'
+      ])
+
       io.puts('420 Go away')
       expect(io.gets).to eq('QUIT')
 

@@ -21,6 +21,7 @@ Mua::Client::Context = Mua::State::Context.define(
   :local_port,
   :remote_ip,
   :remote_port,
+  :smtp_banner,
   reply_buffer: {
     default: -> { [ ] }
   },

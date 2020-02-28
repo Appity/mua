@@ -81,7 +81,7 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
 
         extension, *value = message.split(/\s+/)
 
-        value.map do |v|
+        value.map! do |v|
           case (v)
           when /\A\d+\z/
             v.to_i

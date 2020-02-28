@@ -80,8 +80,10 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
     end
 
     interpret(250) do |context, messages|
-      messages.each do |message|
-        feature, *value = message.split(/\s+/)
+      messages.each_with_index do |message, i|
+        next if (i == 0) # First line is not an extension as per RFC1869 (4.3)
+
+        extension, *value = message.split(/\s+/)
 
         value.map do |v|
           case (v)
@@ -96,10 +98,10 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
           value = value[0]
         end
 
-        context.features[feature.downcase.to_sym] = value
+        context.service_extensions[extension.downcase.to_sym] = value
       end
 
-      if (context.features[:starttls] and context.tls_requested? and !context.tls_engaged?)
+      if (context.service_extensions[:starttls] and context.tls_requested? and !context.tls_engaged?)
         context.transition!(state: :starttls)
       elsif (context.auth_required?)
         context.transition!(state: :auth)

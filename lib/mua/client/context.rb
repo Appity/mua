@@ -28,7 +28,7 @@ Mua::Client::Context = Mua::State::Context.define(
   smtp_timeout: {
     default: Mua::Constants::TIMEOUT_DEFAULT
   },
-  features: {
+  service_extensions: {
     default: -> { { } }
   },
   hostname: {

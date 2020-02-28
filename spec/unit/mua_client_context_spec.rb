@@ -20,7 +20,7 @@ RSpec.describe Mua::Client::Context, type: :reactor do
     expect(context.reply_buffer).to eq([ ])
     expect(context.remote_host).to be(nil)
     expect(context.read_task).to be(nil)
-    expect(context.features).to eq({ })
+    expect(context.service_extensions).to eq({ })
     expect(context.hostname).to eq('localhost')
     expect(context.protocol).to be(:smtp)
     expect(context).to_not be_tls_connect
@@ -55,7 +55,7 @@ RSpec.describe Mua::Client::Context, type: :reactor do
     context.reply_buffer = %w[ Continues ]
     context.remote_host = 'mail.example.net'
     context.read_task = reactor
-    context.features[:max_size] = 1024
+    context.service_extensions[:max_size] = 1024
     context.hostname = 'mta.example.org'
     context.protocol = :esmtp
     context.tls_requested = false
@@ -79,7 +79,7 @@ RSpec.describe Mua::Client::Context, type: :reactor do
     expect(context.reply_buffer).to eq(%w[ Continues ])
     expect(context.remote_host).to eq('mail.example.net')
     expect(context.read_task).to be(reactor)
-    expect(context.features).to eq(max_size: 1024)
+    expect(context.service_extensions).to eq(max_size: 1024)
     expect(context.hostname).to eq('mta.example.org')
     expect(context.protocol).to be(:esmtp)
     expect(context).to be_auth_required

@@ -1,4 +1,5 @@
 require 'async/io/stream'
+
 require_relative '../attr_boolean'
 require_relative '../constants'
 require_relative '../token'

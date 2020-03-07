@@ -18,6 +18,7 @@ module Mua::State::Context::Builder
     end
 
     includes = attr_spec.delete(:includes)
+    extends = attr_spec.delete(:extends)
 
     attrs = base_class.attr_map.merge(
       remap_attrs(attr_list, attr_spec).map do |attr_name, attr_value|
@@ -52,8 +53,31 @@ module Mua::State::Context::Builder
       type.include(includes)
     end
 
+    case (extends)
+    when Array
+      extends.each do |i|
+        type.extend(i)
+      end
+    when Module
+      type.extend(extends)
+    end
+
     if (block_given?)
       type.class_eval(&Proc.new)
+    end
+
+    visible_attrs = attrs.select do |name, meta|
+      !(meta[:visible] === false)
+    end.map do |name, meta|
+      [ name, meta[:variable] ]
+    end.to_h
+
+    visible_attrs[:state] = :@state
+
+    type.define_method(:to_h) do
+      visible_attrs.transform_values do |v|
+        instance_variable_get(v)
+      end
     end
 
     type

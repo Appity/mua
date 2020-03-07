@@ -54,6 +54,11 @@ RSpec.describe Mua::State::Context::Builder do
       expect(context_type.initial_state).to eq(:custom_initial_state)
       expect(context.initial_state).to eq(:custom_initial_state)
       expect(context.state).to eq(:custom_initial_state)
+
+      expect(context.to_h).to eq(
+        state: :custom_initial_state,
+        boolean_value: false
+      )
     end
 
     it 'overrides final_state' do
@@ -145,6 +150,24 @@ RSpec.describe Mua::State::Context::Builder do
       instance = built.new
 
       expect(instance).to respond_to(:demo)
+    end
+
+    it 'can extend the generated class with a module' do
+      extension = Module.new do
+        def demo
+          :demo
+        end
+      end
+
+      built = Mua::State::Context::Builder.class_with_attributes(
+        [ ],
+        extends: extension
+      )
+
+      expect(built).to be_kind_of(Class)
+      expect(built.ancestors).to include(extension)
+
+      expect(built).to respond_to(:demo)
     end
 
     it 'can include multiple modules in the generated class' do

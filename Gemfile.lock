@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    mua (0.4.2)
+    mua (0.4.3)
       async
       async-io
 
@@ -34,7 +34,7 @@ GEM
       rspec-support (~> 3.9.0)
     rspec-files (1.0.2)
       rspec (~> 3.0)
-    rspec-memory (1.0.1)
+    rspec-memory (1.0.2)
       rspec (~> 3.0)
     rspec-mocks (3.9.1)
       diff-lcs (>= 1.2.0, < 2.0)

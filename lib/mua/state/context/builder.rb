@@ -79,6 +79,11 @@ module Mua::State::Context::Builder
         instance_variable_get(v)
       end
     end
+    type.alias_method(:as_json, :to_h)
+
+    type.define_method(:to_json) do |opts = nil|
+      JSON.generate(self.to_h, opts)
+    end
 
     type
   end

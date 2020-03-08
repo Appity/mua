@@ -1,3 +1,5 @@
+require 'json'
+
 RSpec.describe Mua::State::Context, type: :reactor do
   it 'represents a context used to persist information between states and state machines' do
     context = Mua::State::Context.new
@@ -173,6 +175,42 @@ RSpec.describe Mua::State::Context, type: :reactor do
       expect(context.fixed_value).to be(nil)
       expect(context.with_proc).to be(false)
       expect(context.with_customization).to eq('-')
+    end
+
+    it 'can be exported as a Hash' do
+      context = context_type.new(
+        nil_value: 'not_nil',
+        fixed_value: nil,
+        with_proc: false,
+        with_customization: '-'
+      )
+
+      expect(context.to_h).to eq(
+        fixed_value: nil,
+        nil_value: "not_nil",
+        state: :initialize,
+        with_customization: "-",
+        with_proc: false
+      )
+
+      expect(context.as_json).to eq(context.to_h)
+    end
+
+    it 'can be exported as JSON' do
+      context = context_type.new(
+        nil_value: 'not_nil',
+        fixed_value: nil,
+        with_proc: false,
+        with_customization: '-'
+      )
+
+      expect(context.to_json).to eq({
+        nil_value: "not_nil",
+        fixed_value: nil,
+        with_proc: false,
+        with_customization: "-",
+        state: :initialize
+      }.to_json)
     end
   end
 end

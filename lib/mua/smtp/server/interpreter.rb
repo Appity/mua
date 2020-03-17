@@ -1,3 +1,5 @@
+require 'base64'
+
 require_relative 'context'
 require_relative '../../constants'
 require_relative '../../token'
@@ -27,22 +29,22 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
   end
   
   state(:ready) do
-    interpret(/\A\s*EHLO\s+(\S+)\s*\z/) do |context, _, helo_hostname|
+    interpret(/\A\s*EHLO\s+(\S+)\s*\z/i) do |context, _, helo_hostname|
       if (context.valid_hostname?(helo_hostname))
         context.log(:debug, "#{context.remote_ip}:#{context.remote_port} to #{context.local_ip}:#{context.local_port} Accepting connection from #{helo_hostname}")
         context.helo_hostname = helo_hostname
 
         context.reply("250-#{context.hostname} Hello #{context.helo_hostname} [#{context.remote_ip}]")
-        context.reply("250-AUTH PLAIN")
-        context.reply("250-STARTTLS") if (context.tls_configured? and context.tls_advertise?)
-        context.reply("250 SIZE 35651584")
+        context.reply('250-AUTH PLAIN')
+        context.reply('250-STARTTLS') if (context.tls_configured? and context.tls_advertise?)
+        context.reply('250 SIZE 35651584')
       else
         context.log(:debug, "#{context.remote_ip}:#{context.remote_port} to #{context.local_ip}:#{context.local_port} Rejecting connection from #{helo_hostname} because of invalid FQDN")
-        context.reply("504 Need fully qualified hostname")
+        context.reply('504 Need fully qualified hostname')
       end
     end
 
-    interpret(/\A\s*HELO\s+(\S+)\s*\z/) do |context, _, helo_hostname|
+    interpret(/\A\s*HELO\s+(\S+)\s*\z/i) do |context, _, helo_hostname|
       if (context.valid_hostname?(helo_hostname))
         context.log(:debug, "#{context.remote_ip}:#{context.remote_port} to #{context.local_ip}:#{context.local_port} Accepting connection from #{helo_hostname}")
         context.helo_hostname = helo_hostname
@@ -50,11 +52,11 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
         context.reply("250 #{context.hostname} Hello #{context.helo_hostname} [#{context.remote_ip}]")
       else
         context.log(:debug, "#{context.remote_ip}:#{context.remote_port} to #{context.local_ip}:#{context.local_port} Rejecting connection from #{helo_hostname} because of invalid FQDN")
-        context.reply("504 Need fully qualified hostname")
+        context.reply('504 Need fully qualified hostname')
       end
     end
     
-    interpret(/\A\s*MAIL\s+FROM:\s*<([^>]+)>\s*/) do |context, _, address|
+    interpret(/\A\s*MAIL\s+FROM:\s*<([^>]+)>\s*/i) do |context, _, address|
       if (Mua::EmailAddress.valid?(address))
         accept, message = context.will_accept_sender?(address)
 
@@ -64,11 +66,11 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
 
         context.reply(message)
       else
-        context.reply("501 Email address is not RFC compliant")
+        context.reply('501 Email address is not RFC compliant')
       end
     end
 
-    interpret(/\A\s*RCPT\s+TO:\s*<([^>]+)>\s*/) do |context, _, address|
+    interpret(/\A\s*RCPT\s+TO:\s*<([^>]+)>\s*/i) do |context, _, address|
       if (context.message.mail_from)
         if (Mua::EmailAddress.valid?(address))
           accept, message = context.will_accept_recipient?(address)
@@ -79,57 +81,62 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
 
           context.reply(message)
         else
-          context.reply("501 Email address is not RFC compliant")
+          context.reply('501 Email address is not RFC compliant')
         end
       else
-        context.reply("503 Sender not specified")
+        context.reply('503 Sender not specified')
       end
     end
     
-    interpret(/\A\s*AUTH\s+PLAIN\s+(.*)\s*\z/) do |context, _, auth|
+    interpret(/\A\s*AUTH\s+PLAIN\s+(.*)\s*\z/i) do |context, _, auth|
       # 235 2.7.0 Authentication successful
-      context.reply("235 Of course!")
+      context.reply('235 Accepted')
     end
 
-    interpret(/\A\s*AUTH\s+PLAIN\s*\z/) do |context|
+    interpret(/\A\s*AUTH\s+PLAIN\s*\z/i) do |context|
       # Multi-line authentication method
       context.transition!(state: :auth_plain)
     end
-    
-    interpret(/\A\s*STARTTLS\s*\z/) do |context|
+
+    interpret(/\A\s*AUTH\s+LOGIN\s*\z/i) do |context|
+      # Multi-line authentication method
+      context.transition!(state: :auth_login_username)
+    end
+
+    interpret(/\A\s*STARTTLS\s*\z/i) do |context|
       if (context.tls_engaged?)
-        context.reply("454 TLS already started")
+        context.reply('454 TLS already started')
       elsif (context.tls_configured?)
-        context.reply("220 TLS ready to start")
+        context.reply('220 TLS ready to start')
         
         context.starttls! do |tls|
           # FIX: Configure with certificates from context
         end or context.transition!(state: :finished)
       else
-        context.reply("421 TLS not supported")
+        context.reply('421 TLS not supported')
       end
     end
     
-    interpret(/\A\s*DATA\s*\z/) do |context|
+    interpret(/\A\s*DATA\s*\z/i) do |context|
       if (context.message.mail_from and context.message.rcpt_to.any?)
-        context.reply("354 Supply message data")
+        context.reply('354 Supply message data')
         context.transition!(state: :data)
       else
-        context.reply("503 valid RCPT command must precede DATA")
+        context.reply('503 valid RCPT command must precede DATA')
       end
     end
 
-    interpret(/\A\s*NOOP\s*\z/) do |context|
-      context.reply("250 OK")
+    interpret(/\A\s*NOOP\s*\z/i) do |context|
+      context.reply('250 OK')
     end
 
-    interpret(/\A\s*RSET\s*\z/) do |context|
-      context.reply("250 Reset OK")
+    interpret(/\A\s*RSET\s*\z/i) do |context|
+      context.reply('250 Reset OK')
 
       context.transition!(state: :reset)
     end
     
-    interpret(/\A\s*QUIT\s*\z/) do |context|
+    interpret(/\A\s*QUIT\s*\z/i) do |context|
       context.reply("221 #{context.hostname} closing connection")
 
       context.close!
@@ -168,9 +175,36 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
   end
   
   state(:auth_plain) do
-    # Receive a single line of authentication
+    enter do |context|
+      # Receive a single line of authentication
+      context.reply('334 Proceed')
+    end
 
-    # TODO: Add authentication hook
+    default do |context, line|
+      context.reply('235 Authentication successful')
+      context.transition!(state: :ready)
+    end
+  end
+
+  state(:auth_login_username) do
+    enter do |context|
+      context.reply('334 %s' % [ Base64.strict_encode64("User Name\x00") ])
+    end
+
+    default do |context, line|
+      context.transition!(state: :auth_login_password)
+    end
+  end
+
+  state(:auth_login_password) do
+    enter do |context|
+      context.reply('334 %s' % [ Base64.strict_encode64("Password\x00") ])
+    end
+
+    default do |context, line|
+      context.reply('235 Authentication successful')
+      context.transition!(state: :ready)
+    end
   end
   
   state(:reply) do
@@ -180,7 +214,7 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
     end
     
     default do |context, *args|
-      context.reply("554 SMTP Synchronization Error")
+      context.reply('554 SMTP Synchronization Error')
       context.transition!(state: :ready)
     end
   end
@@ -191,7 +225,7 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
 
   state(:timeout) do
     enter do |context|
-      context.reply("420 Idle connection closed")
+      context.reply('420 Idle connection closed')
 
       context.close!
       context.event!(context, self, :timeout)
@@ -209,7 +243,7 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
   end
 
   default do |context, error|
-    context.reply("500 Invalid or incomplete command")
+    context.reply('500 Invalid or incomplete command')
   end
 
   rescue_from(Errno::EPIPE) do |context|

@@ -45,6 +45,7 @@ module Local
   class Context < Mua::SMTP::Server::Context
   end
 
+
   class Interpreter < Mua::SMTP::Server::Interpreter
     def self.context
       Local::Context
@@ -71,7 +72,7 @@ end
 if (options[:reject])
   module RejectRecipients
     def will_accept_recipient?(recipient)
-      [ false, '454 Not accepting mail to that recipient' ]
+      [ false, '550 Not accepting mail to that recipient' ]
     end
   end
 

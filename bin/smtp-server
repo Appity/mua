@@ -29,7 +29,8 @@ program = OptionParser.new do |opts|
   opts.on('-r', '--random', 'Randomize behavior')
   opts.on('-l', '--listen LISTEN', 'Host/port to listen on (e.g. 127.0.0.1:1025')
   opts.on('--cert CERT', 'Base path to TLS certicificate/key pair (minus .pem and .crt extensions)')
-  opts.on('-j', '--reject', 'Reject all transactions')
+  opts.on('-j', '--reject [CODE]', 'Reject all transactions with code', Integer)
+  opts.on('-e', '--deny [CODE]', 'Reject all connections with code', Integer)
 end
 
 program.parse!(ARGV, into: options)
@@ -44,7 +45,6 @@ end
 module Local
   class Context < Mua::SMTP::Server::Context
   end
-
 
   class Interpreter < Mua::SMTP::Server::Interpreter
     def self.context
@@ -69,14 +69,28 @@ if (options[:cert])
   options[:tls_cert_path] = options[:cert] + '.crt'
 end
 
-if (options[:reject])
-  module RejectRecipients
-    def will_accept_recipient?(recipient)
-      [ false, '550 Not accepting mail to that recipient' ]
-    end
+if (options.key?(:deny))
+  deny_code = options[:deny] || 421
+
+  reject_module = Module.new
+
+  reject_module.define_method(:will_accept_connection?) do |hostname, connection|
+    [ false, '%d Connection denied' % deny_code ]
   end
 
-  Local::Context.include(RejectRecipients)
+  Local::Context.include(reject_module)
+end
+
+if (options.key?(:reject))
+  reject_code = options[:reject] || 550
+
+  reject_module = Module.new
+
+  reject_module.define_method(:will_accept_recipient?) do |recipient|
+    [ false, '%d Not accepting mail to recipient' % reject_code ]
+  end
+
+  Local::Context.include(reject_module)
 end
 
 begin

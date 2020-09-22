@@ -30,7 +30,18 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
   
   state(:ready) do
     interpret(/\A\s*EHLO\s+(\S+)\s*\z/i) do |context, _, helo_hostname|
-      if (context.valid_hostname?(helo_hostname))
+      reject, message = context.will_accept_connection?(helo_hostname, context)
+
+      if (!reject)
+        context.reply(message)
+
+        context.log(:debug, "#{context.remote_ip}:#{context.remote_port} to #{context.local_ip}:#{context.local_port} Rejecting cconnection from #{helo_hostname}")
+
+        context.close!
+        context.event!(context, self, :connection_refused)
+
+        context.transition!(state: :finished)
+      elsif (context.valid_hostname?(helo_hostname))
         context.log(:debug, "#{context.remote_ip}:#{context.remote_port} to #{context.local_ip}:#{context.local_port} Accepting connection from #{helo_hostname}")
         context.helo_hostname = helo_hostname
 
@@ -45,7 +56,18 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
     end
 
     interpret(/\A\s*HELO\s+(\S+)\s*\z/i) do |context, _, helo_hostname|
-      if (context.valid_hostname?(helo_hostname))
+      reject, message = context.will_accept_connection?(helo_hostname, context)
+
+      if (!reject)
+        context.reply(message)
+
+        context.log(:debug, "#{context.remote_ip}:#{context.remote_port} to #{context.local_ip}:#{context.local_port} Rejecting cconnection from #{helo_hostname}")
+
+        context.close!
+        context.event!(context, self, :connection_refused)
+
+        context.transition!(state: :finished)
+      elsif (context.valid_hostname?(helo_hostname))
         context.log(:debug, "#{context.remote_ip}:#{context.remote_port} to #{context.local_ip}:#{context.local_port} Accepting connection from #{helo_hostname}")
         context.helo_hostname = helo_hostname
 

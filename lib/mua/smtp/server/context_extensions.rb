@@ -30,7 +30,12 @@ module Mua::SMTP::Server::ContextExtensions
   def valid_hostname?(hostname)
     true
   end
+
+  def will_accept_connection?(hostname, context)
+    [ true, '250 Accepted' ]
+  end
   
+
   def will_accept_sender?(sender)
     [ true, '250 Accepted' ]
   end

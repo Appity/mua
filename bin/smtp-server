@@ -29,8 +29,8 @@ program = OptionParser.new do |opts|
   opts.on('-r', '--random', 'Randomize behavior')
   opts.on('-l', '--listen LISTEN', 'Host/port to listen on (e.g. 127.0.0.1:1025')
   opts.on('--cert CERT', 'Base path to TLS certicificate/key pair (minus .pem and .crt extensions)')
-  opts.on('-j', '--reject [CODE]', 'Reject all transactions with code', Integer)
-  opts.on('-e', '--deny [CODE]', 'Reject all connections with code', Integer)
+  opts.on('-j', '--reject [RESPONSE]', 'Reject all transactions with code')
+  opts.on('-e', '--deny [RESPONSE]', 'Reject all connections with code')
 end
 
 program.parse!(ARGV, into: options)
@@ -70,24 +70,40 @@ if (options[:cert])
 end
 
 if (options.key?(:deny))
-  deny_code = options[:deny] || 421
+  response =
+    case (options[:deny])
+    when nil
+      '421 Connection denied'
+    when /\A\d+\z/
+      '%s Connection denied' % [ options[:deny] ]
+    else
+      options[:deny]
+    end
 
   reject_module = Module.new
 
   reject_module.define_method(:will_accept_connection?) do |hostname, connection|
-    [ false, '%d Connection denied' % deny_code ]
+    [ false, response ]
   end
 
   Local::Context.include(reject_module)
 end
 
 if (options.key?(:reject))
-  reject_code = options[:reject] || 550
+  response =
+    case (options[:reject])
+    when nil
+      '550 Not accepting mail to recipient'
+    when /\A\d+\z/
+      '%s Not accepting mail to recipient' % [ options[:reject] ]
+    else
+      options[:reject]
+    end
 
   reject_module = Module.new
 
   reject_module.define_method(:will_accept_recipient?) do |recipient|
-    [ false, '%d Not accepting mail to recipient' % reject_code ]
+    [ false, response ]
   end
 
   Local::Context.include(reject_module)

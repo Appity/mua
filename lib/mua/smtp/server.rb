@@ -24,11 +24,15 @@ class Mua::SMTP::Server
   attr_reader :port
  
   # == Class Methods ========================================================
+
+  def self.interpreter
+    Mua::SMTP::Server::Interpreter
+  end
   
   # == Instance Methods =====================================================
 
   def initialize(interpreter: nil, bind: nil, port: nil, start: true, tls_key_path: nil, tls_cert_path: nil, tls_initial: false, timeout: nil, &events)
-    @interpreter = interpreter || Mua::SMTP::Server::Interpreter
+    @interpreter = interpreter || self.class.interpreter
     @bind = bind || BIND_DEFAULT
     @port = port || PORT_DEFAULT
     @timeout = timeout || TIMEOUT_DEFAULT

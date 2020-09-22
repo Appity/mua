@@ -29,6 +29,7 @@ program = OptionParser.new do |opts|
   opts.on('-r', '--random', 'Randomize behavior')
   opts.on('-l', '--listen LISTEN', 'Host/port to listen on (e.g. 127.0.0.1:1025')
   opts.on('--cert CERT', 'Base path to TLS certicificate/key pair (minus .pem and .crt extensions)')
+  opts.on('-j', '--reject', 'Reject all transactions')
 end
 
 program.parse!(ARGV, into: options)
@@ -38,6 +39,23 @@ if (options[:debug])
     puts 'DEBUG: Adding debug shim to expose communications'
   end
   Async::IO::Stream.prepend(Mua::Debug::StreamExtensions)
+end
+
+module Local
+  class Context < Mua::SMTP::Server::Context
+  end
+
+  class Interpreter < Mua::SMTP::Server::Interpreter
+    def self.context
+      Local::Context
+    end
+  end
+
+  class Server < Mua::SMTP::Server
+    def self.interpreter
+      Local::Interpreter
+    end
+  end
 end
 
 # TODO: Add Async::IO::Trap.new(:INT)
@@ -50,6 +68,16 @@ if (options[:cert])
   options[:tls_cert_path] = options[:cert] + '.crt'
 end
 
+if (options[:reject])
+  module RejectRecipients
+    def will_accept_recipient?(recipient)
+      [ false, '454 Not accepting mail to that recipient' ]
+    end
+  end
+
+  Local::Context.include(RejectRecipients)
+end
+
 begin
   Async::Reactor.run do
     received = Hash.new do |h,k|
@@ -59,7 +87,7 @@ begin
       }
     end
 
-    server = Mua::SMTP::Server.new(
+    server = Local::Server.new(
       **options.slice(:bind, :port, :timeout, :tls_key_path, :tls_cert_path)
     ) do |context, state, event, *args|
       if (options[:verbose])

@@ -54,6 +54,8 @@ class Mua::SMTP::Client
           @interpreter.run(&block)
         end
 
+      rescue Async::Stop
+        # This can happen if interrupted or force stopped
       rescue Exception => e
         @context.exception = e
 

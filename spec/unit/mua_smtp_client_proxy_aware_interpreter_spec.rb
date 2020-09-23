@@ -18,7 +18,9 @@ RSpec.describe Mua::SMTP::Client::ProxyAwareInterpreter, type: :reactor, timeout
         end
       end
 
-      reactor.async do
+      success = false
+
+      reactor.async do |task|
         read = io.read_exactly(3).unpack('C3')
 
         expect(read).to eq([ 5, 1, 0 ])
@@ -43,7 +45,11 @@ RSpec.describe Mua::SMTP::Client::ProxyAwareInterpreter, type: :reactor, timeout
         read = io.gets
 
         expect(read).to eq('EHLO localhost')
+
+        success = true
       end.wait
+
+      expect(success).to be(true)
     end
   end
 

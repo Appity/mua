@@ -64,9 +64,6 @@ class Mua::State::Machine < Mua::State
         # that would otherwise spin forever.
         break if (step or context.terminated? or !transition)
 
-      rescue Async::Stop
-        # Async loop stopped, so just quit.
-        break
       rescue Exception => e
         if (handler = @exception_handlers[e.class])
           handler.call(context, e)

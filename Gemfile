@@ -9,4 +9,5 @@ group :development do
   gem 'rake'
   gem 'rspec'
   gem 'async-rspec'
+  gem 'mail'
 end

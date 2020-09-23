@@ -131,6 +131,10 @@ module Mua::Client::ContextExtensions
     # ...
   end
 
+  def message_callback(success, message)
+    # ...
+  end
+
   def handle_reply_continuation(reply_code, reply_message, continues)
     @reply_message ||= ''
     
@@ -148,15 +152,15 @@ module Mua::Client::ContextExtensions
   end
 
   def starttls!
+    self.input.flush
+
     @tls_context = OpenSSL::SSL::SSLContext.new
-    self.input.flush
-    io = self.input.io
 
-    tls_socket = Async::IO::SSLSocket.new(io, @tls_context)
+    self.input = Async::IO::Stream.new(
+      Async::IO::SSLSocket.connect(self.input.io, @tls_context)
+    )
 
-    self.input = Async::IO::Stream.new(tls_socket)
     yield(self.input) if (block_given?)
-    self.input.flush
 
     true
   end

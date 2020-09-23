@@ -60,7 +60,7 @@ class Mua::SMTP::Message
     @test
   end
 
-  def complete?
+  def valid?
     [ @mail_from, @rcpt_to, @data ].all? do |v|
       v and v.match?(/\S/)
     end

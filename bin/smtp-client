@@ -18,20 +18,26 @@ require 'logger'
 # == Support Methods ========================================================
 
 def samples(path, recursive: false, shuffle: false, limit: false)
-  spec = recursive ? '**/*' : '*'
+  files = [ ]
 
-  files = Dir.glob(File.expand_path(File.join(path, spec), Dir.pwd)).select do |f|
-    File.file?(f)
+  if (File.file?(path))
+    files << path
+  else
+    spec = recursive ? '**/*' : '*'
+
+    files += Dir.glob(File.expand_path(File.join(path, spec), Dir.pwd)).select do |f|
+      File.file?(f)
+    end
+  
+    if (shuffle)
+      files.shuffle!
+    end
+  
+    if (limit)
+      files = files.first(limit)
+    end
   end
-
-  if (shuffle)
-    files.shuffle!
-  end
-
-  if (limit)
-    files = files.first(limit)
-  end
-
+  
   if (block_given?)
     files.each(&Proc.new)
   end
@@ -58,6 +64,7 @@ program = OptionParser.new do |opts|
   opts.on('-v', '--verbose', 'Enable versbose mode')
   opts.on('-h', '--smtp-host HOST', 'Use SMTP host')
   opts.on('-H', '--smtp-port PORT', 'Use SMTP port', Integer)
+  opts.on('-b', '--hostname HOSTNAME', 'EHLO/HELO hostname identifier')
   opts.on('-p', '--proxy-host HOST', 'Use SOCKS5 proxy host')
   opts.on('-P', '--proxy-port PORT', 'Use SOCKS5 proxy port', Integer)
   opts.on('-t', '--timeout=TIMEOUT', 'Set SMTP command timeout (seconds)', Integer)
@@ -86,12 +93,22 @@ messages = [ ]
 
 args.each do |path|
   samples(path, shuffle: options[:shuffle], limit: options[:limit], recursive: options[:recursive]) do |f|
+    data = File.read(f).gsub(/\r?\n/, "\r\n")
+
+    parsed = Mail.new(data)
+
     messages << {
       id: File.basename(f),
+      mail_from: parsed.from[0],
+      rcpt_to: parsed.to,
       name: f.delete_prefix(Dir.pwd + '/'),
-      data: File.read(f).gsub(/\r?\n/, "\r\n")
+      data: data
     }
   end
+end
+
+if (options[:debug])
+  puts("> Loaded %d sample(s)" % messages.length)
 end
 
 if (options[:fork])
@@ -102,66 +119,66 @@ end
 
 start = Time.now.utc
 
-Async do |reactor|
-  options[:reactor] = reactor
+begin
+  Async do |reactor|
+    options[:reactor] = reactor
 
-  if (options[:verbose])
-    via_proxy = options[:proxy_host] && (' through %s:%s' % [ options[:proxy_host], options[:proxy_port] ])
-
-    puts('%s:%d> Ready to initiate connection%s' % [
-      options[:smtp_host],
-      options[:smtp_port],
-      via_proxy
-    ])
-  end
-
-  client = Mua::SMTP::Client.new(options) do |context, state, event, *args|
-    next unless (options[:verbose])
-
-    puts('%s:%d> %s %s %s' % [
-      context.smtp_host,
-      context.smtp_port,
-      state.name,
-      event,
-      args.any? ? args.inspect : ''
-    ])
-  end
-
-  deliveries = messages.map do |message|
     if (options[:verbose])
-      puts '%s>> Queued message' % [ message[:id] ]
+      via_proxy = options[:proxy_host] && (' through %s:%s' % [ options[:proxy_host], options[:proxy_port] ])
+
+      puts('%s:%d> Ready to initiate connection%s' % [
+        options[:smtp_host],
+        options[:smtp_port],
+        via_proxy
+      ])
     end
 
-    client.deliver!(
-      id: message[:id],
-      mail_from: 'test@pistachio.email',
-      rcpt_to: 'test@pistachio.email',
-      data: message[:data]
-    )
+    client = Mua::SMTP::Client.new(options) do |context, state, event, *args|
+      next unless (options[:verbose])
+
+      puts('%s:%d> %s %s %s' % [
+        context.smtp_host,
+        context.smtp_port,
+        state.name,
+        event,
+        args.any? ? args.inspect : ''
+      ])
+    end
+
+    deliveries = messages.map do |message|
+      if (options[:verbose])
+        puts '%s>> Queued message' % [ message[:id] ]
+      end
+
+      client.deliver!(message)
+    end
+
+    deliveries.map!(&:wait)
+
+    client.quit!
+
+    deliveries.group_by(&:delivered?).each do |delivered, list|
+      puts '%5.1f%% %s' % [
+        list.length * 100.0 / deliveries.length,
+        delivered ? 'Delivered' : 'Not Delivered'
+      ]
+    end
+  end.wait
+
+  if (options[:stopwatch])
+    delta = Time.now - start
+
+    mb = messages.map { |d| d[:data].bytesize }.sum / 1024**2
+
+    puts('Sent %d message(s) in %.1fs at %.1fMPS (%.1fMB at %.1fMB/s)' % [
+      messages.length,
+      delta,
+      messages.length / delta,
+      mb,
+      mb / delta
+    ])
   end
 
-  deliveries.map!(&:wait)
-
-  client.quit!
-
-  deliveries.group_by(&:delivered?).each do |delivered, list|
-    puts '%5.1f%% %s' % [
-      list.length * 100.0 / deliveries.length,
-      delivered ? 'Delivered' : 'Not Delivered'
-    ]
-  end
-end.wait
-
-if (options[:stopwatch])
-  delta = Time.now - start
-
-  mb = messages.map { |d| d[:data].bytesize }.sum / 1024**2
-
-  puts('Sent %d message(s) in %.1fs at %.1fMPS (%.1fMB at %.1fMB/s)' % [
-    messages.length,
-    delta,
-    messages.length / delta,
-    mb,
-    mb / delta
-  ])
+rescue Interrupt
+  exit(-1)
 end

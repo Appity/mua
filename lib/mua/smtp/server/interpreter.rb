@@ -166,6 +166,10 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
 
       context.transition!(state: :finished)
     end
+
+    interpret(/\A\s*\z/) do
+      # Ignore blank lines.
+    end
   end
 
   state(:data) do

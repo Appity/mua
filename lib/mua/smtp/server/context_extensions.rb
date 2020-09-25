@@ -14,7 +14,7 @@ module Mua::SMTP::Server::ContextExtensions
   def banner=(str)
     @banner = str
   end
-  
+
   def tls_engaged?
     self.input.is_a?(Async::IO::SSLSocket)
   end
@@ -22,7 +22,7 @@ module Mua::SMTP::Server::ContextExtensions
   def tls_configured?
     self.tls_key_path and self.tls_cert_path
   end
-  
+
   def log(channel, *args)
     # FIX: Log stuff?
   end
@@ -31,19 +31,22 @@ module Mua::SMTP::Server::ContextExtensions
     true
   end
 
+  def will_accept_auth?(username, password)
+    [ true, '250 Accepted' ]
+  end
+
   def will_accept_connection?(hostname, context)
     [ true, '250 Accepted' ]
   end
-  
 
   def will_accept_sender?(sender)
     [ true, '250 Accepted' ]
   end
-  
+
   def will_accept_recipient?(recipient)
     [ true, '250 Accepted' ]
   end
-  
+
   def will_accept_transaction?(transaction)
     [ true, '250 Accepted' ]
   end
@@ -75,7 +78,7 @@ module Mua::SMTP::Server::ContextExtensions
     io = self.input.io
     timeout, io.timeout = io.timeout, nil
 
-    tls_socket = Async::IO::SSLSocket.new(io, @tls_context)
+    tls_socket = Async::IO::SSLSocket.connect(io, @tls_context)
     yield(tls_socket) if (block_given?)
 
     self.input = Async::IO::Stream.new(tls_socket)
@@ -86,5 +89,26 @@ module Mua::SMTP::Server::ContextExtensions
     self.close!
 
     false
+  end
+
+  def authenticated?
+    !!self.authenticated
+  end
+
+  def authenticate!(username, password)
+    # REFACTOR: This has a lot of duplication
+    accept, reply, authenticated_as = self.will_accept_auth?(username, password)
+
+    if (accept)
+      self.reply(reply || '235 Authentication successful')
+
+      self.authenticated_as = authenticated_as || username
+
+      self.transition!(state: :ready)
+    else
+      self.reply(reply || '535 Authentication failed')
+
+      self.transition!(state: :ready)
+    end
   end
 end

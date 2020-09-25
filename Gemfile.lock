@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    mua (0.4.5)
+    mua (0.4.6)
       async
       async-io
 

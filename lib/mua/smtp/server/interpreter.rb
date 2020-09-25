@@ -19,15 +19,15 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
       context.transition!(state: :reset)
     end
   end
-  
+
   state(:reset) do
     enter do |context|
       context.reset_transaction!
-      
+
       context.transition!(state: :ready)
     end
   end
-  
+
   state(:ready) do
     interpret(/\A\s*EHLO\s+(\S+)\s*\z/i) do |context, _, helo_hostname|
       reject, message = context.will_accept_connection?(helo_hostname, context)
@@ -56,10 +56,10 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
     end
 
     interpret(/\A\s*HELO\s+(\S+)\s*\z/i) do |context, _, helo_hostname|
-      reject, message = context.will_accept_connection?(helo_hostname, context)
+      accept, reply = context.will_accept_connection?(helo_hostname, context)
 
-      if (!reject)
-        context.reply(message)
+      if (!accept)
+        context.reply(reply)
 
         context.log(:debug, "#{context.remote_ip}:#{context.remote_port} to #{context.local_ip}:#{context.local_port} Rejecting cconnection from #{helo_hostname}")
 
@@ -77,16 +77,16 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
         context.reply('504 Need fully qualified hostname')
       end
     end
-    
+
     interpret(/\A\s*MAIL\s+FROM:\s*<([^>]+)>\s*/i) do |context, _, address|
       if (Mua::EmailAddress.valid?(address))
-        accept, message = context.will_accept_sender?(address)
+        accept, reply = context.will_accept_sender?(address)
 
         if (accept)
           context.message.mail_from = address
         end
 
-        context.reply(message)
+        context.reply(reply)
       else
         context.reply('501 Email address is not RFC compliant')
       end
@@ -95,13 +95,13 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
     interpret(/\A\s*RCPT\s+TO:\s*<([^>]+)>\s*/i) do |context, _, address|
       if (context.message.mail_from)
         if (Mua::EmailAddress.valid?(address))
-          accept, message = context.will_accept_recipient?(address)
+          accept, reply = context.will_accept_recipient?(address)
 
           if (accept)
             context.message.rcpt_to << address
           end
 
-          context.reply(message)
+          context.reply(reply)
         else
           context.reply('501 Email address is not RFC compliant')
         end
@@ -109,10 +109,11 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
         context.reply('503 Sender not specified')
       end
     end
-    
+
     interpret(/\A\s*AUTH\s+PLAIN\s+(.*)\s*\z/i) do |context, _, auth|
-      # 235 2.7.0 Authentication successful
-      context.reply('235 Accepted')
+      username, password = Base64.decode64(auth).split(/\x00/)[1,2]
+
+      context.authenticate!(username, password)
     end
 
     interpret(/\A\s*AUTH\s+PLAIN\s*\z/i) do |context|
@@ -130,7 +131,7 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
         context.reply('454 TLS already started')
       elsif (context.tls_configured?)
         context.reply('220 TLS ready to start')
-        
+
         context.starttls! do |tls|
           # FIX: Configure with certificates from context
         end or context.transition!(state: :finished)
@@ -138,7 +139,7 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
         context.reply('421 TLS not supported')
       end
     end
-    
+
     interpret(/\A\s*DATA\s*\z/i) do |context|
       if (context.message.mail_from and context.message.rcpt_to.any?)
         context.reply('354 Supply message data')
@@ -157,7 +158,7 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
 
       context.transition!(state: :reset)
     end
-    
+
     interpret(/\A\s*QUIT\s*\z/i) do |context|
       context.reply("221 #{context.hostname} closing connection")
 
@@ -166,45 +167,46 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
       context.transition!(state: :finished)
     end
   end
-  
+
   state(:data) do
     interpret(/\A\.\z/) do |context|
       context.message.remote_ip = context.remote_ip
-      
-      accept, message = context.will_accept_transaction?(context.message)
-      
+
+      accept, reply = context.will_accept_transaction?(context.message)
+
       if (accept)
-        accept, message = context.receive_transaction(context.message)
+        _accept, reply = context.receive_transaction(context.message)
 
-        context.event!(context, self, :deliver_accept, context.message, message)
-        
-        context.reply(message)
+        context.event!(context, self, :deliver_accept, context.message, reply)
+
+        context.reply(reply)
       else
-        context.event!(context, self, :deliver_reject, context.message, message)
+        context.event!(context, self, :deliver_reject, context.message, reply)
 
-        context.reply(message)
+        context.reply(reply)
       end
 
       context.reset_transaction!
 
       context.transition!(state: :ready)
     end
-    
+
     default do |context, line|
       # RFC5321 4.5.2 - Leading dot is removed if line has content
       context.message.data << line.delete_prefix('.') << Mua::Constants::CRLF
     end
   end
-  
+
   state(:auth_plain) do
     enter do |context|
       # Receive a single line of authentication
       context.reply('334 Proceed')
     end
 
-    default do |context, line|
-      context.reply('235 Authentication successful')
-      context.transition!(state: :ready)
+    default do |context, auth|
+      username, password = Base64.decode64(auth).split(/\x00/)[1,2]
+
+      context.authenticate!(username, password)
     end
   end
 
@@ -214,6 +216,8 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
     end
 
     default do |context, line|
+      context.auth_username = Base64.decode64(line)
+
       context.transition!(state: :auth_login_password)
     end
   end
@@ -224,17 +228,18 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
     end
 
     default do |context, line|
-      context.reply('235 Authentication successful')
-      context.transition!(state: :ready)
+      password = Base64.decode64(line)
+
+      context.authenticate!(context.auth_username, password)
     end
   end
-  
+
   state(:reply) do
     enter do |context|
       # Random delay if required
       context.reply(@reply)
     end
-    
+
     default do |context, *args|
       context.reply('554 SMTP Synchronization Error')
       context.transition!(state: :ready)

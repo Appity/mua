@@ -32,7 +32,7 @@ module Mua::SMTP::Server::ContextExtensions
   end
 
   def will_accept_auth?(username, password)
-    [ true, '250 Accepted' ]
+    [ true, '235 Authentication successful' ]
   end
 
   def will_accept_connection?(hostname, context)

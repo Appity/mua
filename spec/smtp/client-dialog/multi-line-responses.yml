@@ -48,5 +48,5 @@ dialog:
 - verify_delivery:
   - id: 7c6d70b468e3@mail.example.com
     state: :delivered
-    reply_code: 250
+    reply_code: SMTP_250
     reply_message: Yeah, well, mark me down as underwhelmed. I really had high expectations for that email!

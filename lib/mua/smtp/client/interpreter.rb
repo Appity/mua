@@ -17,7 +17,8 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
       else
         buffer, context.reply_buffer = context.reply_buffer, [ ]
         buffer << reply_message
-        context.reply_code = reply_code
+
+        context.reply_code = "SMTP_#{reply_code}"
         context.reply_message = buffer
 
         [ reply_code, buffer ]
@@ -45,7 +46,7 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
 
       context.transition!(state: context.protocol == :esmtp ? :ehlo : :helo)
     end
-    
+
     interpret(421) do |context, message|
       context.connect_notification(false, "Connection timed out")
       context.debug_notification(:error, "[#{@state}] 421 #{message}")
@@ -55,7 +56,7 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
       context.transition!(state: :terminated)
     end
   end
-  
+
   state(:helo) do
     enter do |context|
       context.reply("HELO #{context.hostname}")
@@ -69,7 +70,7 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
       end
     end
   end
-  
+
   state(:ehlo) do
     enter do |context|
       context.reply("EHLO #{context.hostname}")
@@ -108,7 +109,7 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
         context.transition!(state: :established)
       end
     end
-    
+
     interpret(500..599) do |context, result_code|
       # RFC1869 suggests trying HELO if EHLO results in some kind of error,
       # typically 5xx, but the actual code varies wildly depending on server.
@@ -116,15 +117,15 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
       context.transition!(state: :helo)
     end
   end
-  
+
   state(:starttls) do
     enter do |context|
       context.reply('STARTTLS')
     end
-    
+
     interpret(220) do |context|
       context.starttls!
-      
+
       case (context.protocol)
       when :esmtp
         context.transition!(state: :ehlo)
@@ -143,11 +144,11 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
         )
       ])
     end
-    
+
     interpret(235) do |context|
       context.transition!(state: :established)
     end
-    
+
     interpret(535) do |context, reply_messages|
       # FIX: Not compatible with new model
       handle_reply_continuation(535, reply_message) do |reply_code, reply_message|
@@ -160,15 +161,15 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
       end
     end
   end
-  
+
   state(:established) do
     enter do |context|
       context.connect_notification(true)
-      
+
       context.transition!(state: :ready)
     end
   end
-  
+
   state(:ready) do
     enter do |context|
       if (context.delivery_queued?)
@@ -177,7 +178,7 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
         context.transition!(state: :quit)
       end
     end
-    
+
     interpret(400..499) do |context|
       # Messages like this might indicate a connection time-out, not an
       # actual error.
@@ -185,7 +186,7 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
       # FIX: Handle somehow, reject in-flight deliveries?
     end
   end
-  
+
   state(:deliver) do
     enter do |context|
       if (context.delivery_pop)
@@ -193,7 +194,7 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
       end
     end
   end
-  
+
   state(:mail_from) do
     enter do |context|
       if (context.message)
@@ -207,19 +208,19 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
     interpret(250) do |context|
       context.transition!(state: :rcpt_to)
     end
-    
+
     interpret(503) do |context, reply_messages|
       if (reply_messages[0].match(/5\.5\.1/))
         context.transition!(state: :re_helo)
       end
     end
   end
-  
+
   state(:rcpt_to) do
     enter do |context|
       if (context.message)
         recipient = context.message.rcpt_to_iterator.next
-      
+
         context.reply("RCPT TO:<#{recipient}>")
       else
         context.message_callback(false, "Delegate has no active message")
@@ -237,7 +238,7 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
 
       context.transition!(state: :reset)
     end
-    
+
     interpret(250) do |context, reply_messages|
       # FIX: Should test more than one recipient
       if (context.message.test?)
@@ -252,7 +253,7 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
     rescue StopIteration
       context.transition!(state: :data)
     end
-    
+
     interpret(500..599) do |context, reply_code, reply_messages|
       if (context.message.test?)
         message.status = :test_failed
@@ -267,17 +268,17 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
       context.transition!(state: :reset)
     end
   end
-  
+
   state(:data) do
     enter do |context|
       context.reply('DATA')
     end
-    
+
     interpret(354) do |context|
       context.transition!(state: :sending)
     end
   end
-  
+
   state(:sending) do
     enter do |context|
       data = context.message.data
@@ -292,9 +293,9 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
       context.reply
       context.reply(".")
     end
-    
+
     default do |context, reply_code, reply_messages|
-      context.message.reply_code = reply_code
+      context.message.reply_code = "SMTP_#{reply_code}"
       context.message.reply_message = reply_messages.join(' ')
 
       # FIX: This needs to be a lot smarter and interpret responses better
@@ -307,27 +308,27 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
         end
 
       context.delivery_resolve!(
-        result_code: reply_code,
+        result_code: "SMTP_#{reply_code}",
         result_message: reply_messages.join(' '),
         delivered: context.message.state == :delivered
       )
-  
+
       context.transition!(state: :sent)
     end
   end
-  
+
   state(:sent) do
     enter do |context|
       context.message = nil
       context.transition!(state: :ready)
     end
   end
-  
+
   state(:re_helo) do
     enter do |context|
       context.reply("HELO #{context.hostname}")
     end
-    
+
     interpret(220) do |context|
       if (context.requires_authentication?)
         context.transition!(state: :auth)
@@ -337,7 +338,7 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
         context.transition!(state: :established)
       end
     end
-    
+
     interpret(250) do |context|
       if (context.requires_authentication?)
         context.transition!(state: :auth)
@@ -346,22 +347,22 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
       end
     end
   end
-  
+
   state(:quit) do
     enter do |context|
       context.reply('QUIT')
     end
-    
+
     interpret(221) do |context|
       context.transition!(state: :terminated)
     end
-    
+
     interpret(502) do |context|
       # "502 5.5.2 Error: command not recognized"
       context.transition!(state: :terminated)
     end
   end
-  
+
   state(:terminated) do
     enter do |context|
       context.delivery_queued_fail!(
@@ -372,22 +373,22 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
       context.parent_transition!(state: :smtp_finished)
     end
   end
-  
+
   state(:reset) do
     enter do |context|
       context.reply('RSET')
     end
-    
+
     interpret(250) do |context|
       context.transition!(state: :ready)
     end
   end
-  
+
   state(:noop) do
     enter do |context|
       context.reply('NOOP')
     end
-    
+
     interpret(250) do |context|
       context.transition!(state: :ready)
     end
@@ -396,12 +397,12 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
   default do |context, reply_code, reply_messages|
     # FIX: Determine if it should RSET or QUIT
     # context.transition!(state: @state == :initialized ? :terminated : :reset)
-    
+
     # context.reply('QUIT')
     # context.terminated!
 
     if (message = context.message)
-      message.reply_code = reply_code
+      message.reply_code = "SMTP_#{reply_code}"
       message.reply_message = reply_messages.join(' ')
       message.failed!
     end

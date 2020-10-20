@@ -12,9 +12,9 @@ class Mua::SMTP::Message
   ].freeze
 
   STATE_DEFAULT = :queued
-  
+
   # == Extensions ===========================================================
-  
+
   # == Properties ===========================================================
 
   attr_reader :id
@@ -28,18 +28,18 @@ class Mua::SMTP::Message
 
   attr_reader :reply_code
   attr_accessor :reply_message
-  
+
   # == Class Methods ========================================================
 
   def self.states
     STATES
   end
-  
+
   # == Instance Methods =====================================================
-  
+
   def initialize(args = nil)
     args ||= { }
-    
+
     @id = args[:id] || args['id']
     @mail_from = args[:mail_from] || args['mail_from']
     @rcpt_to = [ args[:rcpt_to] || args['rcpt_to'] ].flatten.compact
@@ -77,6 +77,6 @@ class Mua::SMTP::Message
   end
 
   def reply_code=(v)
-    @reply_code = v&.to_i
+    @reply_code = v
   end
 end

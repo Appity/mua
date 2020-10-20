@@ -71,14 +71,14 @@ RSpec.describe Mua::SMTP::Message, timeout: 5 do
       end
     end
   end
-  
+
   it 'can be updated with a reply code/message' do
     message = Mua::SMTP::Message.new
 
-    message.reply_code = '250'
+    message.reply_code = 'SMTP_250'
     message.reply_message = 'We got it'
 
-    expect(message.reply_code).to eq(250)
+    expect(message.reply_code).to eq('SMTP_250')
     expect(message.reply_message).to eq('We got it')
   end
 

@@ -83,7 +83,11 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
         accept, reply = context.will_accept_sender?(address)
 
         if (accept)
+          context.event!(context, self, :mail_from_accept, address, reply)
+
           context.message.mail_from = address
+        else
+          context.event!(context, self, :mail_from_reject, address, reply)
         end
 
         context.reply(reply)
@@ -98,7 +102,11 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
           accept, reply = context.will_accept_recipient?(address)
 
           if (accept)
+            context.event!(context, self, :rcpt_to_accept, address, reply)
+
             context.message.rcpt_to << address
+          else
+            context.event!(context, self, :rcpt_to_reject, address, reply)
           end
 
           context.reply(reply)

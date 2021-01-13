@@ -254,6 +254,21 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
       context.transition!(state: :data)
     end
 
+    # Note! split soft_bounce and hard_bounce for now
+    interpret(400..499) do |context, reply_code, reply_messages|
+      if (context.message.test?)
+        message.status = :test_failed
+
+        context.delivery_resolve!(
+          result_code: reply_code,
+          result_message: reply_messages.join(' '),
+          delivered: false
+        )
+      else
+        context.transition!(state: :reset)
+      end
+    end
+
     interpret(500..599) do |context, reply_code, reply_messages|
       if (context.message.test?)
         message.status = :test_failed
@@ -263,9 +278,9 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
           result_message: reply_messages.join(' '),
           delivered: false
         )
+      else
+        context.transition!(state: :reset)
       end
-
-      context.transition!(state: :reset)
     end
   end
 

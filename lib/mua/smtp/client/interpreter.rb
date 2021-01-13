@@ -257,7 +257,6 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
     # Note! split soft_bounce and hard_bounce for now
     interpret(400..499) do |context, reply_code, reply_messages|
       unless (context.message.test?)
-        message.status = :test_failed
         context.delivery_resolve!(
           result_code: reply_code,
           result_message: reply_messages.join(' '),
@@ -270,7 +269,6 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
 
     interpret(500..599) do |context, reply_code, reply_messages|
       unless (context.message.test?)
-        message.status = :test_failed
         context.delivery_resolve!(
           result_code: reply_code,
           result_message: reply_messages.join(' '),

@@ -255,22 +255,10 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
     end
 
     # Note! split soft_bounce and hard_bounce for now
-    interpret(400..499) do |context, reply_code, reply_messages|
+    interpret(400..599) do |context, reply_code, reply_messages|
       unless (context.message.test?)
         context.delivery_resolve!(
-          result_code: reply_code,
-          result_message: reply_messages.join(' '),
-          delivered: false
-        )
-      end
-
-      context.transition!(state: :reset)
-    end
-
-    interpret(500..599) do |context, reply_code, reply_messages|
-      unless (context.message.test?)
-        context.delivery_resolve!(
-          result_code: reply_code,
+          result_code: "SMTP_#{reply_code}",
           result_message: reply_messages.join(' '),
           delivered: false
         )

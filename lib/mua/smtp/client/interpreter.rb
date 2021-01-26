@@ -254,7 +254,7 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
       context.transition!(state: :data)
     end
 
-    # Note! split soft_bounce and hard_bounce for now
+    # NOTE: Same handler for soft_bounce and hard_bounce for now
     interpret(400..599) do |context, reply_code, reply_messages|
       unless (context.message.test?)
         context.delivery_resolve!(

@@ -137,13 +137,13 @@ module Mua::Client::ContextExtensions
 
   def handle_reply_continuation(reply_code, reply_message, continues)
     @reply_message ||= ''
-    
+
     if (preamble = @reply_message.split(/\s/).first)
       reply_message.sub!(/^#{preamble}/, '')
     end
-    
+
     @reply_message << reply_message.gsub(/\s+/, ' ')
-    
+
     unless (continues)
       yield(reply_code, @reply_message)
 

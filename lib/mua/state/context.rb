@@ -6,7 +6,7 @@ require_relative '../token'
 
 class Mua::State::Context
   # == Constants ============================================================
-  
+
   # == Extensions ===========================================================
 
   extend Mua::AttrBoolean
@@ -18,7 +18,7 @@ class Mua::State::Context
   attr_accessor :input
   attr_accessor :events
   attr_boolean :terminated
-  
+
   # == Class Methods ========================================================
 
   def self.define(*attr_list, **attr_spec, &block)
@@ -28,7 +28,7 @@ class Mua::State::Context
   def self.attr_map
     { }
   end
-  
+
   # == Instance Methods =====================================================
 
   def initialize(reactor: nil, state: nil, input: nil)

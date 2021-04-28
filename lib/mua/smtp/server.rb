@@ -78,8 +78,8 @@ class Mua::SMTP::Server
           context.tls_key_path = @tls_key_path
           context.tls_cert_path = @tls_cert_path
           context.logger = @logger
-        end.run do |...|
-          events&.call(...)
+        end.run do |context, state, event, *args|
+          events&.call(context, state, event, *args)
         end
       end
     end

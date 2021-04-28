@@ -53,6 +53,8 @@ openssl s_client -connect localhost:1025 -starttls smtp
 
 Where `localhost:1025` is the target server being tested.
 
+The `-debug` flag can also be used to display additional information.
+
 ## Contributing
 
 Bug reports and pull requests are welcome on GitHub at

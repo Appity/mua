@@ -280,8 +280,6 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
       context.event!(context, self, :disconnected)
 
       context.close!
-    # rescue => e
-    #   $stderr.puts('[%s] %s' % [ e.class, e ])
     end
   end
 

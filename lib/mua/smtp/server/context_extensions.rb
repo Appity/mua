@@ -75,16 +75,19 @@ module Mua::SMTP::Server::ContextExtensions
 
   def tls_cert
     # FIX: Rescue if these files don't exist
+    # FIX: Verify this certificate is still valid, warn if expired
     @tls_cert ||= OpenSSL::X509::Certificate.new(File.read(self.tls_cert_path))
   end
 
   def tls_key
     # FIX: Rescue if these files don't exist
+    # FIX: Verify this is a private key
     @tls_key ||= OpenSSL::PKey.read(File.read(self.tls_key_path))
   end
 
   def starttls!
     @tls_context = OpenSSL::SSL::SSLContext.new.tap do |tls|
+      # FIX: Verify key matches certificate
       tls.cert = self.tls_cert
       tls.key = self.tls_key
     end
@@ -93,12 +96,13 @@ module Mua::SMTP::Server::ContextExtensions
     io = self.input.io
     timeout = io.timeout
 
-    tls_socket = Async::IO::SSLSocket.connect(io, @tls_context)
+    tls_socket = Async::IO::SSLSocket.new(io, @tls_context)
+    tls_socket.accept
 
     yield(tls_socket) if (block_given?)
 
     self.input = Async::IO::Stream.new(tls_socket)
-    self.input.timeout = timeout
+    self.input.io.timeout = timeout
 
     true
 

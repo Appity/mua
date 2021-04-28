@@ -12,19 +12,19 @@ class Mua::SMTP::Client
     socks5_port: 1080,
     timeout: 30
   }.freeze
-  
+
   # == Extensions ===========================================================
-  
+
   # == Properties ===========================================================
 
   attr_reader :context
 
   # == Class Methods ========================================================
-  
+
   # == Instance Methods =====================================================
-  
+
   def initialize(**options, &block)
-    @context = Mua::Client::Context.new(DEFAULTS.merge(options))
+    @context = Mua::Client::Context.new(**DEFAULTS.merge(options))
 
     if (@context.proxy?)
       @context.remote_ip = @context.proxy_host

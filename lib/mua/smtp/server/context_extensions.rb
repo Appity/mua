@@ -1,6 +1,8 @@
+require 'logger'
+
 module Mua::SMTP::Server::ContextExtensions
   def log(channel, *lines, severity: nil)
-    return unless (defined?(@logger))
+    return unless (defined?(@logger) and @logger)
 
     level ||= Logger::DEBUG
 

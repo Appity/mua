@@ -6,7 +6,7 @@ module Mua::State::Context::Builder
   # * boolean: Generates x? interrogation method
   # * readonly: Omits generating mutator method
   # * convert: Conversion function to apply when writing
-  def self.class_with_attributes(attr_list, attr_spec, base_class = Mua::State::Context)
+  def self.class_with_attributes(attr_list, attr_spec, base_class = Mua::State::Context, &block)
     type = Class.new(base_class)
 
     if (initial_state = attr_spec.delete(:initial_state))
@@ -63,7 +63,7 @@ module Mua::State::Context::Builder
     end
 
     if (block_given?)
-      type.class_eval(&Proc.new)
+      type.class_eval(&block)
     end
 
     visible_attrs = attrs.select do |name, meta|
@@ -90,7 +90,7 @@ module Mua::State::Context::Builder
 
   def self.remap_attrs(attr_list, attr_spec, &block)
     remapped = attr_list.map do |attr_name|
-      [ attr_name, { 
+      [ attr_name, {
         variable: :"@#{attr_name}",
         default: nil
       } ]

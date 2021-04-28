@@ -13,7 +13,7 @@ module Mua::Parser
         rescue EOFError
           nil
         rescue Async::TimeoutError
-          block.call(Mua::Token::Timeout)
+          block.call(context, Mua::Token::Timeout)
         end
       else
         -> (context) do
@@ -34,7 +34,7 @@ module Mua::Parser
         rescue EOFError
           nil
         rescue Async::TimeoutError
-          block.call(Mua::Token::Timeout)
+          block.call(context, Mua::Token::Timeout)
         end
       else
         -> (context) do
@@ -50,16 +50,16 @@ module Mua::Parser
           -> (context) do
             read = context.input.read_exactly(exactly).tap { |r| r&.chomp! if (chomp) }
             read and block.call(context, *read.unpack(unpack))
-  
+
           rescue EOFError
             nil
           rescue Async::TimeoutError
-            block.call(Mua::Token::Timeout)
+            block.call(context, Mua::Token::Timeout)
           end
         else
           -> (context) do
             context.input.read_exactly(exactly).tap { |r| r&.chomp! if (chomp) }.unpack(unpack)
-  
+
           rescue EOFError
             nil
           rescue Async::TimeoutError
@@ -71,16 +71,16 @@ module Mua::Parser
           -> (context) do
             read = context.input.read_exactly(exactly).tap { |r| r&.chomp! if (chomp) }
             read and block.call(context, read)
-  
+
           rescue EOFError
             nil
           rescue Async::TimeoutError
-            block.call(Mua::Token::Timeout)
+            block.call(context, Mua::Token::Timeout)
           end
         else
           -> (context) do
             context.input.read_exactly(exactly).tap { |r| r&.chomp! if (chomp) }
-  
+
           rescue EOFError
             nil
           rescue Async::TimeoutError

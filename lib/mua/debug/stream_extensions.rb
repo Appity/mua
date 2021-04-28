@@ -1,13 +1,13 @@
 module Mua::Debug::StreamExtensions
-  def read(*args)
+  def read(...)
     super.tap { |v| $stdout.puts('read: %s' % v.inspect) }
   end
 
-  def read_partial(*args)
+  def read_partial(...)
     super.tap { |v| $stdout.puts('read_partial: %s' % v.inspect) }
   end
 
-  def gets(*args)
+  def gets(...)
     super.tap { |v| $stdout.puts('gets: %s' % v&.chomp.inspect) }
   end
 

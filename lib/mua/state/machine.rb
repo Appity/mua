@@ -8,7 +8,7 @@ class Mua::State::Machine < Mua::State
 
   class InvalidStateError < Mua::Error
   end
-  
+
   # == Properties ===========================================================
 
   attr_reader :error
@@ -33,7 +33,7 @@ class Mua::State::Machine < Mua::State
       end
     end
   end
-  
+
   def state_defined?(state)
     @states.key?(state)
   end

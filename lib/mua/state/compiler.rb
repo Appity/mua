@@ -29,7 +29,7 @@ module Mua::State::Compiler
             [
               'when %s' % match.dump,
               '__block_%d.call(context, *args, &events)' % i
-            ] 
+            ]
           when Symbol, Integer, Float, true, false, nil
             [
               'when %s' % match.inspect,

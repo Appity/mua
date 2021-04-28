@@ -34,7 +34,7 @@ class Mua::State
   end
 
   # == Instance Methods =====================================================
-  
+
   # Creates a new state.
   def initialize(name: nil, parent: nil, prepare: true, auto_terminate: true)
     @name = name

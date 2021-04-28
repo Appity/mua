@@ -8,7 +8,11 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
   name: 'Mua::SMTP::Server::Interpreter',
   context: Mua::SMTP::Server::Context
 ) do
-  parser(line: true, separator: Mua::Constants::LF, chomp: true)
+  parser(line: true, separator: Mua::Constants::LF, chomp: true) do |context, line|
+    context.log(:recv, line)
+
+    line
+  end
 
   state(:initialize) do
     enter do |context|

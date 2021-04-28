@@ -28,6 +28,8 @@ program = OptionParser.new do |opts|
   opts.on('-t', '--timeout TIMEOUT', 'Set SMTP command timeout (seconds)', Integer)
   opts.on('-r', '--random', 'Randomize behavior')
   opts.on('-l', '--listen LISTEN', 'Host/port to listen on (e.g. 127.0.0.1:1025')
+  opts.on('-g', '--log PATH', 'Log SMTP communication to log file at path')
+  opts.on('--hostname HOSTNAME', 'Specify hostname used in EHLO banner')
   opts.on('--cert CERT', 'Base path to TLS certicificate/key pair (minus .pem and .crt extensions)')
   opts.on('-j', '--reject [RESPONSE]', 'Reject all transactions with code')
   opts.on('-e', '--deny [RESPONSE]', 'Reject all connections with code')
@@ -109,6 +111,10 @@ if (options.key?(:reject))
   Local::Context.include(reject_module)
 end
 
+logger = if (options[:log])
+  Logger.new(options[:log], 5, 16 * 1024**2)
+end
+
 begin
   Async::Reactor.run do
     received = Hash.new do |h,k|
@@ -119,7 +125,15 @@ begin
     end
 
     server = Local::Server.new(
-      **options.slice(:bind, :port, :timeout, :tls_key_path, :tls_cert_path)
+      logger: logger,
+      **options.slice(
+        :hostname,
+        :bind,
+        :port,
+        :timeout,
+        :tls_key_path,
+        :tls_cert_path
+      )
     ) do |context, state, event, *args|
       if (options[:verbose])
         puts('%s> %s %s' % [ context.remote_addr, state.name, event ])
@@ -151,6 +165,10 @@ begin
 
     unless (options[:silent])
       puts('SMTP server listening on %s:%d' % [ server.bind, server.port ])
+
+      if (options[:log])
+        puts '* Logging to %s' % options[:log]
+      end
 
       if (server.tls_configured?)
         puts('* TLS configured and STARTTLS advertised')

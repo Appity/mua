@@ -1,4 +1,14 @@
 module Mua::SMTP::Server::ContextExtensions
+  def log(channel, *lines, severity: nil)
+    return unless (defined?(@logger))
+
+    level ||= Logger::DEBUG
+
+    lines.each do |line|
+      @logger.add(level, '%s> %s' % [ channel, line ])
+    end
+  end
+
   def reset_transaction!
     self.message = Mua::SMTP::Message.new
   end
@@ -21,10 +31,6 @@ module Mua::SMTP::Server::ContextExtensions
 
   def tls_configured?
     self.tls_key_path and self.tls_cert_path
-  end
-
-  def log(channel, *args)
-    # FIX: Log stuff?
   end
 
   def valid_hostname?(hostname)

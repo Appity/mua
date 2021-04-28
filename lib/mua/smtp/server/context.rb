@@ -16,6 +16,7 @@ Mua::SMTP::Server::Context = Mua::State::Context.define(
   :remote_port,
   :authenticated_as,
   :auth_username,
+  :logger,
   id: {
     default: -> { SecureRandom.uuid }
   },

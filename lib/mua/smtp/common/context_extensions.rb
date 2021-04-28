@@ -8,7 +8,7 @@ module Mua
           # REFACTOR: There's probably a better way to handle this than
           #           by creating a task per readline operation but it needs
           #           to be an interruptable operation.
-      
+
           # self.read_task = Async::Task.current.with_timeout(self.timeout) do
           self.read_task = Async do
             line = self.input.gets
@@ -16,10 +16,12 @@ module Mua
             line and yield(line.chomp)
           end
 
-          self.read_task.wait
-      
+          self.read_task.wait.tap do |line|
+            self.log(:recv, line)
+          end
+
           # FIX: Handle Async read interruptions
-      
+
         rescue Async::Wrapper::Cancelled
           @state_target and context.transition!(state: @state_target).tap do
             @state_target = nil
@@ -39,13 +41,15 @@ module Mua
             self.input.read_exactly(exactly)
           end
         end
-        
+
         def write(data)
+          self.log(:send, data)
           self.input.write(data)
           self.input.flush
         end
-      
+
         def reply(*lines)
+          self.log(:send, *lines)
           self.input.puts(*lines, separator: Mua::Constants::CRLF)
         end
 
@@ -56,6 +60,10 @@ module Mua
 
         def close!
           self.input.close
+        end
+
+        def log(channel, *data)
+          # Override with extensions
         end
 
         def remote_addr

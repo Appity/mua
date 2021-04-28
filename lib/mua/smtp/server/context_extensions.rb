@@ -69,34 +69,46 @@ module Mua::SMTP::Server::ContextExtensions
     self.input.flush
     self.input.close_write
 
-  rescue Errno::ENOTCONN
+  rescue Errno::ENOTCONN, IOError
     # Connection is already closed, so this can be ignored.
   end
 
+  def tls_cert
+    # FIX: Rescue if these files don't exist
+    @tls_cert ||= OpenSSL::X509::Certificate.new(File.read(self.tls_cert_path))
+  end
+
+  def tls_key
+    # FIX: Rescue if these files don't exist
+    @tls_key ||= OpenSSL::PKey.read(File.read(self.tls_key_path))
+  end
+
   def starttls!
-    @tls_context = OpenSSL::SSL::SSLContext.new
+    @tls_context = OpenSSL::SSL::SSLContext.new.tap do |tls|
+      tls.cert = self.tls_cert
+      tls.key = self.tls_key
+    end
 
-    # FIX: Rescue if these things don't exist
-    # REFACTOR: Maybe want to have the key pre-loaded, avoid paths
-    cert = OpenSSL::X509::Certificate.new(File.read(self.tls_cert_path))
-    key = OpenSSL::PKey.read(File.read(self.tls_key_path))
-
-    @tls_context.add_certificate(cert, key)
-
+    self.input.flush
     io = self.input.io
-    timeout, io.timeout = io.timeout, nil
+    timeout = io.timeout
 
     tls_socket = Async::IO::SSLSocket.connect(io, @tls_context)
+
     yield(tls_socket) if (block_given?)
 
     self.input = Async::IO::Stream.new(tls_socket)
+    self.input.timeout = timeout
 
     true
 
-  rescue OpenSSL::SSL::SSLError
-    self.close!
+  rescue OpenSSL::SSL::SSLError => e
+    self.event!(self, self.state, error: '[%s] %s' % [ e.class, e.to_s ])
 
-    false
+    self.close!
+    self.terminated!
+
+    self.transition!(state: :finished)
   end
 
   def authenticated?

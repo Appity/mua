@@ -8,6 +8,7 @@ module Mua::Parser
       if (block)
         -> (context) do
           read = context.input.gets(separator, chomp: chomp).tap { |r| r&.chomp! if (chomp) }
+
           read and block.call(context, read)
 
         rescue EOFError

@@ -144,9 +144,7 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
       elsif (context.tls_configured?)
         context.reply('220 TLS ready to start')
 
-        context.starttls! do |tls|
-          # FIX: Configure with certificates from context
-        end or context.transition!(state: :finished)
+        context.starttls!
       else
         context.reply('421 TLS not supported')
       end
@@ -279,9 +277,11 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
 
   state(:finished) do
     enter do |context|
-      context.close!
-
       context.event!(context, self, :disconnected)
+
+      context.close!
+    # rescue => e
+    #   $stderr.puts('[%s] %s' % [ e.class, e ])
     end
   end
 

@@ -68,6 +68,8 @@ class Mua::State::Machine < Mua::State
         if (handler = @exception_handlers[e.class])
           handler.call(context, e)
         else
+          # $stderr.puts('[%s] %s' % [ e.class, e ]) if (ENV['EXCEPTION_DEBUG'])
+
           raise e
         end
       end

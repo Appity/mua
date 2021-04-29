@@ -62,6 +62,8 @@ class Mua::SMTP::Server
     @endpoint.bind do |server, task|
       server.listen(BACKLOG_DEFAULT)
 
+      @port = server.local_address.ip_port
+
       server.accept_each do |peer|
         peer.timeout = @timeout
 

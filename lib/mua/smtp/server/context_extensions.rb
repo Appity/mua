@@ -99,6 +99,8 @@ module Mua::SMTP::Server::ContextExtensions
     tls_socket = Async::IO::SSLSocket.new(io, @tls_context)
     tls_socket.accept
 
+    tls_socket.wait
+
     yield(tls_socket) if (block_given?)
 
     self.input = Async::IO::Stream.new(tls_socket)

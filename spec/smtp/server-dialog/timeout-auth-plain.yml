@@ -5,7 +5,7 @@ dialog:
 - recv: EHLO client.example.org
 - send: 250-Hello client.example.org [localhost]
 - send: 250-AUTH PLAIN LOGIN
-- send: 250 SIZE 35651584
+- send: 250 SIZE 33554432
 - recv: AUTH PLAIN
 - send: 334 Proceed
 - wait: 0.2

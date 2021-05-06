@@ -29,6 +29,9 @@ Mua::SMTP::Server::Context = Mua::State::Context.define(
   smtp_timeout: {
     default: Mua::Constants::TIMEOUT_DEFAULT
   },
+  size_limit: {
+    default: 33554432
+  },
   protocol: {
     default: :esmtp
   },

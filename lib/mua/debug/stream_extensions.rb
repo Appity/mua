@@ -8,7 +8,7 @@ module Mua::Debug::StreamExtensions
   end
 
   def gets(...)
-    super.tap { |v| $stdout.puts('gets: %s' % v&.chomp.inspect) }
+    super.tap { |v| $stdout.puts('gets: %s' % v&.chomp&.inspect) }
   end
 
   def write(*args)

@@ -60,33 +60,41 @@ module SimulateExchange
         @context.hostname = hostname
       end
 
-      script['dialog'].each do |cmd|
-        if (data = cmd['recv'])
-          self.puts(data)
-        elsif (data = cmd['send'])
-          rspec.expect(self.gets).to rspec.eq(data)
-        elsif (data = cmd['deliver'])
-          [ data ].flatten.each do |message|
-            message = Mua::SMTP::Message.new(message)
-            message.id ||= SecureRandom.uuid + '@example.net'
-            @messages[message.id] = message
-            @context.deliver!(message)
-          end
-        elsif (data = cmd['quit'])
-          @context.quit!
-        elsif (data = cmd['verify_delivery'])
-          [ data ].flatten.each do |delivery|
-            message = @messages[delivery['id']]
-            rspec.expect(message).to rspec.be_kind_of(Mua::SMTP::Message)
-
-            delivery.each do |field, value|
-              rspec.expect(message.send(field)).to rspec.eq(value)
-            end
-          end
-        end
+      if (timeout = script['timeout']&.to_f)
+        @cio.io.timeout = timeout
       end
 
-      @io.close if (close)
+      Async do |task|
+        script['dialog'].each do |cmd|
+          if (data = cmd['recv'])
+            self.puts(data)
+          elsif (data = cmd['send'])
+            rspec.expect(self.gets).to rspec.eq(data)
+          elsif (data = cmd['deliver'])
+            [ data ].flatten.each do |message|
+              message = Mua::SMTP::Message.new(message)
+              message.id ||= SecureRandom.uuid + '@example.net'
+              @messages[message.id] = message
+              @context.deliver!(message)
+            end
+          elsif (data = cmd['quit'])
+            @context.quit!
+          elsif (data = cmd['verify_delivery'])
+            [ data ].flatten.each do |delivery|
+              message = @messages[delivery['id']]
+              rspec.expect(message).to rspec.be_kind_of(Mua::SMTP::Message)
+
+              delivery.each do |field, value|
+                rspec.expect(message.send(field)).to rspec.eq(value)
+              end
+            end
+          elsif (wait = cmd['wait']&.to_f)
+            task.sleep(wait)
+          end
+        end
+
+        @io.close if (close)
+      end
     end
 
     def puts(*args)
@@ -95,6 +103,9 @@ module SimulateExchange
 
     def gets
       @io.gets(CRLF, chomp: true)
+
+    rescue Async::TimeoutError
+      false
     end
 
     # Write and call a block with the result

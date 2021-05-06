@@ -1,4 +1,5 @@
 hostname: mail.example.com
+timeout: 0.1
 dialog:
 - send: 220 mail.example.com Mua ESMTP Server Ready
 - recv: EHLO client.example.org
@@ -11,12 +12,5 @@ dialog:
 - send: 250 Accepted
 - recv: DATA
 - send: 354 Supply message data
-- recv: 'From: Sender <recver@example.test>'
-- recv: 'To: Recipient <recipient@example.org>'
-- recv: ''
-- recv: 'Example email!'
-- recv: ''
-- recv: '.'
-- send: 250 Accepted
-- recv: QUIT
-- send: 221 mail.example.com closing connection
+- wait: 0.2
+- send: FLARG

@@ -44,7 +44,7 @@ module Mua::SMTP::Server::ContextExtensions
   end
 
   def will_accept_connection?(hostname, context)
-    [ true, '250 Accepted' ]
+    [ true, "250 Hello #{hostname} [#{context.remote_ip}]" ]
   end
 
   def will_accept_sender?(sender)

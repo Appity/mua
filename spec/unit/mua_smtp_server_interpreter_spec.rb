@@ -32,10 +32,21 @@ RSpec.describe Mua::SMTP::Server::Interpreter, type: [ :interpreter, :reactor ],
         with_interpreter(ServerInterpreter) do |context, io|
           context.assign_remote_ip!
           context.assign_local_ip!
-          
-          io.run_dialog(self, script)
+
+          io.run_dialog(self, script).wait
         end
       end
     end
   end
+
+  # context 'can handle timeouts' do
+  #   it 'when receiving DATA' do
+  #     with_interpreter(ServerInterpreter) do |context, io|
+  #       context.assign_remote_ip!
+  #       context.assign_local_ip!
+
+  #       io.run_dialog(self, script)
+  #     end
+  #   end
+  # end
 end

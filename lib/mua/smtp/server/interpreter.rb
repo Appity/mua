@@ -49,7 +49,10 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
         context.log(:debug, "#{context.remote_ip}:#{context.remote_port} to #{context.local_ip}:#{context.local_port} Accepting connection from #{helo_hostname}")
         context.helo_hostname = helo_hostname
 
-        context.reply("250-#{context.hostname} Hello #{context.helo_hostname} [#{context.remote_ip}]")
+        message = message.dup # Allow returning frozen strings
+        message[3] = '-' # Mark as a continued message
+
+        context.reply(message)
         context.reply('250-AUTH PLAIN')
         context.reply('250-STARTTLS') if (context.tls_configured? and context.tls_advertise?)
         context.reply('250 SIZE 35651584')

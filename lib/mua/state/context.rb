@@ -45,8 +45,8 @@ class Mua::State::Context
     Mua::State::INITIAL_DEFAULT
   end
 
-  def final_state
-    Mua::State::FINAL_DEFAULT
+  def terminal_states
+    Mua::State::TERMINAL_DEFAULT
   end
 
   def async(&block)
@@ -87,7 +87,7 @@ class Mua::State::Context
 
   # Emits a state transition to the default final state
   def finished!
-    Mua::State::Transition.new(state: self.final_state)
+    Mua::State::Transition.new(state: self.terminal_states[0])
   end
 
   # Returns true if a reactor is associated with this context, false otherwise.

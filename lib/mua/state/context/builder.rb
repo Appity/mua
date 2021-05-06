@@ -13,8 +13,8 @@ module Mua::State::Context::Builder
       define_initial_state!(type, initial_state)
     end
 
-    if (final_state = attr_spec.delete(:final_state))
-      define_final_state!(type, final_state)
+    if (terminal_states = attr_spec.delete(:terminal_states))
+      define_terminal_states!(type, terminal_states)
     end
 
     includes = attr_spec.delete(:includes)
@@ -120,17 +120,19 @@ module Mua::State::Context::Builder
     type.send(:define_singleton_method, :initial_state) do
       initial_state
     end
+
     type.send(:define_method, :initial_state) do
       initial_state
     end
   end
 
-  def self.define_final_state!(type, final_state)
-    type.send(:define_singleton_method, :final_state) do
-      final_state
+  def self.define_terminal_states!(type, terminal_states)
+    type.send(:define_singleton_method, :terminal_states) do
+      terminal_states
     end
-    type.send(:define_method, :final_state) do
-      final_state
+
+    type.send(:define_method, :terminal_states) do
+      terminal_states
     end
   end
 

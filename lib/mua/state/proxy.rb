@@ -6,7 +6,7 @@ class Mua::State::Proxy
   attr_reader :state
 
   # == Instance Methods =====================================================
-  
+
   # Attaches to a given State object. If a block is given, the block is
   # called in the context of this proxy object.
   def initialize(state, &proc)
@@ -27,7 +27,7 @@ class Mua::State::Proxy
   def name
     @state.name
   end
-  
+
   # Defines a preprocessor that runs after the enter phase but before parse
   def preprocess(**spec, &proc)
     @state.preprocess = Mua::Parser.read_stream(**spec, &proc)
@@ -37,18 +37,20 @@ class Mua::State::Proxy
   def parser(**spec, &proc)
     @state.parser = Mua::Parser.read_stream(**spec, &proc)
   end
-  
+
   # Defines a proc that will execute when the state is entered.
   def enter(&proc)
     @state.enter << proc
   end
-  
+
   # Defines an interpreter proc that will execute if the given response
   # condition is met.
   def interpret(response, &proc)
     @state.interpret << [ response, proc ]
   end
 
+  # Defines a handler for exceptions generated during the state machine's
+  # operation.
   def rescue_from(exception, &proc)
     @state.rescue_from << [ exception, proc ]
   end
@@ -58,7 +60,12 @@ class Mua::State::Proxy
     if (interpreter)
       @state.interpret << [ name, interpreter.machine ]
     else
-      Mua::State.new(name: name, parent: @state, prepare: false, auto_terminate: @state.auto_terminate?) do |state|
+      Mua::State.new(
+        name: name,
+        parent: @state,
+        prepare: false,
+        auto_terminate: @state.auto_terminate?
+      ) do |state|
         state.parser = @state.parser
 
         Mua::State::Proxy.new(state, &block)
@@ -71,7 +78,7 @@ class Mua::State::Proxy
       end
     end
   end
-  
+
   # Defines a default behavior that will trigger in the event no interpreter
   # definition was triggered first.
   def default(&proc)

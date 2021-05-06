@@ -41,7 +41,7 @@ RSpec.describe Mua::State::Context::Builder do
     context_type = Mua::State::Context::Builder.class_with_attributes(
       [ ],
       initial_state: :custom_initial_state,
-      final_state: :custom_final_state,
+      terminal_states: :custom_terminal_state,
       boolean_value: {
         boolean: true,
         default: false
@@ -61,11 +61,11 @@ RSpec.describe Mua::State::Context::Builder do
       )
     end
 
-    it 'overrides final_state' do
+    it 'overrides terminal_states' do
       context = context_type.new
 
-      expect(context_type.final_state).to eq(:custom_final_state)
-      expect(context.final_state).to eq(:custom_final_state)
+      expect(context_type.terminal_states).to eq(:custom_terminal_state)
+      expect(context.terminal_states).to eq(:custom_terminal_state)
     end
 
     it 'properly defaults' do
@@ -182,7 +182,7 @@ RSpec.describe Mua::State::Context::Builder do
             :b
           end
         end
-      ] 
+      ]
 
       built = Mua::State::Context::Builder.class_with_attributes(
         [ ],

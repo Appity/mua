@@ -182,7 +182,7 @@ RSpec.describe Mua::State::Machine, type: :reactor, timeout: 1 do
 
       machine = Mua::State::Machine.define(
         initial_state: :custom,
-        final_state: :done
+        terminal_states: [ :done ]
       ) do
         state(:custom) do
           enter do |context|

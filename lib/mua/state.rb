@@ -4,7 +4,7 @@ class Mua::State
   # == Constants ============================================================
 
   INITIAL_DEFAULT = :initialize
-  FINAL_DEFAULT = :finished
+  TERMINAL_DEFAULT = [ :finished ].freeze
 
   # == Properties ===========================================================
 

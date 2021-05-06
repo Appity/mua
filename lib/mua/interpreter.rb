@@ -2,11 +2,11 @@ require_relative 'state'
 
 class Mua::Interpreter
   # == Constants ============================================================
-  
+
   # == Extensions ===========================================================
-  
+
   # == Properties ===========================================================
-  
+
   attr_reader :context
   attr_reader :machine
 
@@ -20,7 +20,7 @@ class Mua::Interpreter
       )
       machine = Mua::State::Machine.define(
         name: name,
-        **attr_spec.slice(:initial_state, :final_state),
+        **attr_spec.slice(:initial_state, :terminal_states),
         &block
       )
 
@@ -33,9 +33,9 @@ class Mua::Interpreter
       end
     end
   end
-  
+
   # == Instance Methods =====================================================
-  
+
   def initialize(input)
     @machine = self.class.machine
     @context =

@@ -253,8 +253,8 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
       context.transition!(state: :finished)
     end
 
-    default do |context, line|
-      context.auth_username = Base64.decode64(line)
+    default do |context, username_b64|
+      context.auth_username = Base64.decode64(username_b64)
 
       context.transition!(state: :auth_login_password)
     end
@@ -272,8 +272,8 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
       context.transition!(state: :finished)
     end
 
-    default do |context, line|
-      password = Base64.decode64(line)
+    default do |context, password_b64|
+      password = Base64.decode64(password_b64)
 
       context.authenticate!(context.auth_username, password)
     end

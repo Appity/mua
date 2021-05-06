@@ -1,0 +1,11 @@
+hostname: mail.example.com
+dialog:
+- send: 220 mail.example.com Mua ESMTP Server Ready
+- recv: EHLO client.example.org
+- send: 250-Hello client.example.org [localhost]
+- send: 250-AUTH PLAIN LOGIN
+- send: 250 SIZE 33554432
+- recv: AUTH PLAIN
+- send: 334 Proceed
+- recv: 💀
+- send: 535 Missing authentication details

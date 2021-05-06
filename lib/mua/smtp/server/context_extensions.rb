@@ -40,7 +40,11 @@ module Mua::SMTP::Server::ContextExtensions
   end
 
   def will_accept_auth?(username, password)
-    [ true, '235 Authentication successful' ]
+    if (username&.match?(/\S/) and password&.match?(/\S/))
+      [ true, '235 Authentication successful' ]
+    else
+      [ false, '535 Missing authentication details' ]
+    end
   end
 
   def will_accept_connection?(hostname, context)

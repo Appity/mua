@@ -32,6 +32,9 @@ Mua::SMTP::Server::Context = Mua::State::Context.define(
   protocol: {
     default: :esmtp
   },
+  auth: {
+    default: [ :plain, :login ]
+  },
   tls_initial: {
     default: false,
     boolean: true

@@ -3,7 +3,7 @@ dialog:
 - send: 220 mail.example.com Mua ESMTP Server Ready
 - recv: EHLO client.example.org
 - send: 250-Hello client.example.org [localhost]
-- send: 250-AUTH PLAIN
+- send: 250-AUTH PLAIN LOGIN
 - send: 250 SIZE 35651584
 - recv: MAIL FROM:<sender@example.org>
 - send: 250 Accepted

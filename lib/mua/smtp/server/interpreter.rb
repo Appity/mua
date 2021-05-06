@@ -53,7 +53,7 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
         message[3] = '-' # Mark as a continued message
 
         context.reply(message)
-        context.reply('250-AUTH PLAIN')
+        context.reply('250-AUTH %s' % context.auth.map { |a| a.to_s.upcase }.join(" "))
         context.reply('250-STARTTLS') if (context.tls_configured? and context.tls_advertise?)
         context.reply('250 SIZE 35651584')
       else
@@ -208,6 +208,13 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
       context.transition!(state: :ready)
     end
 
+    interpret(Mua::Token::Timeout) do |context|
+      context.reply('421 Timeout waiting for data')
+
+      context.close!
+      context.transition!(state: :finished)
+    end
+
     default do |context, line|
       # RFC5321 4.5.2 - Leading dot is removed if line has content
       context.message.data << line.delete_prefix('.') << Mua::Constants::CRLF
@@ -218,6 +225,13 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
     enter do |context|
       # Receive a single line of authentication
       context.reply('334 Proceed')
+    end
+
+    interpret(Mua::Token::Timeout) do |context|
+      context.reply('421 Timeout waiting for auth')
+
+      context.close!
+      context.transition!(state: :finished)
     end
 
     default do |context, auth|
@@ -232,6 +246,13 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
       context.reply('334 %s' % [ Base64.strict_encode64("User Name\x00") ])
     end
 
+    interpret(Mua::Token::Timeout) do |context|
+      context.reply('421 Timeout waiting for auth username')
+
+      context.close!
+      context.transition!(state: :finished)
+    end
+
     default do |context, line|
       context.auth_username = Base64.decode64(line)
 
@@ -242,6 +263,13 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
   state(:auth_login_password) do
     enter do |context|
       context.reply('334 %s' % [ Base64.strict_encode64("Password\x00") ])
+    end
+
+    interpret(Mua::Token::Timeout) do |context|
+      context.reply('421 Timeout waiting for auth password')
+
+      context.close!
+      context.transition!(state: :finished)
     end
 
     default do |context, line|

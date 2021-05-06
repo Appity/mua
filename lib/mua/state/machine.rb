@@ -9,8 +9,8 @@ class Mua::State::Machine < Mua::State
 
   # == Exceptions ===========================================================
 
-  class InvalidStateError < Mua::Error
-  end
+  InvalidStateError = Class.new(Mua::Error)
+  IterationLimitError = Class.new(Mua::Error)
 
   # == Properties ===========================================================
 
@@ -59,6 +59,8 @@ class Mua::State::Machine < Mua::State
   end
 
   def run_interior(context, step: false, &events)
+    iteration_count = 0
+
     loop do
       begin
         transition = nil
@@ -66,7 +68,7 @@ class Mua::State::Machine < Mua::State
         unless (context.state)
           context.terminated!
 
-          break
+          return
         end
 
         # Automatically terminate after this run if the state is terminal
@@ -79,13 +81,13 @@ class Mua::State::Machine < Mua::State
           context.state = transition.state
           events&.call(context, self, :transition, context.state)
 
-          break result.deparent! if (result.parent)
+          return result.deparent! if (result.parent)
         end
 
         # Break if in single step mode, context has terminated, or the state
         # failed to transition to something else, which is a dead-end state
         # that would otherwise spin forever.
-        break if (step or context.terminated? or !transition or terminal)
+        return if (step or context.terminated? or !transition or terminal)
 
       rescue Exception => e
         if (handler = @exception_handlers[e.class])
@@ -95,6 +97,12 @@ class Mua::State::Machine < Mua::State
 
           raise e
         end
+      end
+
+      iteration_count += 1
+
+      if (context.iteration_limit and iteration_count > context.iteration_limit)
+        raise IterationLimitError, "Iteration halted after #{context.iteration_limit} iteration(s)"
       end
     end
   end

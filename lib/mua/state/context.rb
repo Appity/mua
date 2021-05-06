@@ -18,6 +18,7 @@ class Mua::State::Context
   attr_accessor :input
   attr_accessor :events
   attr_boolean :terminated
+  attr_accessor :iteration_limit
 
   # == Class Methods ========================================================
 
@@ -31,12 +32,14 @@ class Mua::State::Context
 
   # == Instance Methods =====================================================
 
-  def initialize(reactor: nil, state: nil, input: nil)
+  def initialize(reactor: nil, state: nil, input: nil, iteration_limit: nil)
     @reactor = reactor
     @state = state || self.initial_state
     @input = input
     @terminated = false
     @events = nil
+
+    @iteration_limit = iteration_limit&.to_i
 
     yield(self) if (block_given?)
   end

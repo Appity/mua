@@ -184,8 +184,8 @@ module Mua::State::Context::Builder
   end
 
   def self.define_initialize!(type, attrs)
-    type.send(:define_method, :initialize) do |reactor: nil, state: nil, input: nil, **args|
-      super(reactor: reactor, state: state, input: input)
+    type.send(:define_method, :initialize) do |reactor: nil, state: nil, input: nil, iteration_limit: nil, **args|
+      super(reactor: reactor, state: state, input: input, iteration_limit: iteration_limit)
 
       if (initial_state = args[:state])
         @state = initial_state

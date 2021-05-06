@@ -380,4 +380,27 @@ RSpec.describe Mua::State::Machine, type: :reactor, timeout: 1 do
 
     expect(machine.run(context))
   end
+
+  it('detects machines that get stuck in a single state') do
+    machine = Mua::State::Machine.define do
+      state(:initialize) do
+        enter do |context|
+          context.transition!(state: :stuck)
+        end
+      end
+
+      state(:stuck) do
+        enter do |context|
+          context.transition!(state: :stuck)
+        end
+
+        default do |context|
+        end
+      end
+    end
+
+    context = Mua::State::Context.define.new(iteration_limit: 1024)
+
+    expect { machine.run(context) }.to raise_exception(Mua::State::Machine::IterationLimitError)
+  end
 end

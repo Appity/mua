@@ -17,7 +17,7 @@ require 'logger'
 
 # == Support Methods ========================================================
 
-def samples(path, recursive: false, shuffle: false, limit: false)
+def samples(path, recursive: false, shuffle: false, limit: false, &block)
   files = [ ]
 
   if (File.file?(path))
@@ -28,18 +28,18 @@ def samples(path, recursive: false, shuffle: false, limit: false)
     files += Dir.glob(File.expand_path(File.join(path, spec), Dir.pwd)).select do |f|
       File.file?(f)
     end
-  
+
     if (shuffle)
       files.shuffle!
     end
-  
+
     if (limit)
       files = files.first(limit)
     end
   end
-  
+
   if (block_given?)
-    files.each(&Proc.new)
+    files.each(&block)
   end
 
   files
@@ -52,6 +52,7 @@ options = {
   timeout: 30,
   silent: false,
   debug: false,
+  'smtp-host': 'localhost',
   'smtp-port': 25,
   'proxy-port': 1080,
   recursive: false,
@@ -67,7 +68,7 @@ program = OptionParser.new do |opts|
   opts.on('-b', '--hostname HOSTNAME', 'EHLO/HELO hostname identifier')
   opts.on('-p', '--proxy-host HOST', 'Use SOCKS5 proxy host')
   opts.on('-P', '--proxy-port PORT', 'Use SOCKS5 proxy port', Integer)
-  opts.on('-t', '--timeout=TIMEOUT', 'Set SMTP command timeout (seconds)', Integer)
+  opts.on('-t', '--timeout TIMEOUT', 'Set SMTP command timeout (seconds)', Integer)
   opts.on('-R', '--recursive', 'Import email data recurisvely')
   opts.on('-y', '--dry-run', 'Dry run, do not actually send')
   opts.on('-l', '--limit LIMIT', 'Limit sending volume', Integer)
@@ -133,7 +134,7 @@ begin
       ])
     end
 
-    client = Mua::SMTP::Client.new(options) do |context, state, event, *args|
+    client = Mua::SMTP::Client.new(**options) do |context, state, event, *args|
       next unless (options[:verbose])
 
       puts('%s:%d> %s %s %s' % [
@@ -150,7 +151,7 @@ begin
         puts '%s>> Queued message' % [ message[:id] ]
       end
 
-      client.deliver!(message)
+      client.deliver!(**message)
     end
 
     deliveries.map!(&:wait)

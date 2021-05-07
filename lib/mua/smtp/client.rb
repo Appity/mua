@@ -39,6 +39,8 @@ class Mua::SMTP::Client
     @signal = Async::Condition.new
 
     @task = Async do |task|
+      task.annotate "#{self.class}##{self.object_id} initialize"
+
       begin
         @endpoint.connect do |peer|
           peer.timeout = @context.timeout
@@ -75,7 +77,7 @@ class Mua::SMTP::Client
   end
 
   def deliver!(**args)
-    @context.deliver!(Mua::SMTP::Message.new(args))
+    @context.deliver!(Mua::SMTP::Message.new(**args))
   end
 
   def wait

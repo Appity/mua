@@ -172,7 +172,9 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
 
   state(:ready) do
     enter do |context|
-      if (context.delivery_queued?)
+      context.ready = true
+
+      if (context.batch.queue_any?)
         context.transition!(state: :deliver)
       elsif (context.close_requested?)
         context.transition!(state: :quit)
@@ -189,7 +191,7 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
 
   state(:deliver) do
     enter do |context|
-      if (context.delivery_pop)
+      if (context.batch_poll!)
         context.transition!(state: :mail_from)
       end
     end
@@ -219,7 +221,7 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
   state(:rcpt_to) do
     enter do |context|
       if (context.message)
-        recipient = context.message.rcpt_to_iterator.next
+        recipient = context.message.each_rcpt.next
 
         context.reply("RCPT TO:<#{recipient}>")
       else
@@ -230,10 +232,9 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
     rescue StopIteration
       context.message_callback(false, "Message has no recipients")
 
-      context.delivery_resolve!(
+      message.failed!(
         result_code: 'MAIL_NO_RECIPIENTS',
-        result_message: 'Message has no recipients',
-        delivered: false
+        result_message: 'Message has no recipients'
       )
 
       context.transition!(state: :reset)
@@ -245,7 +246,7 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
         message.status = :test_passed
         context.transition!(state: :reset)
       else
-        recipient = context.message.rcpt_to_iterator.next
+        recipient = context.message.each_rcpt.next
 
         context.reply("RCPT TO:<#{recipient}>")
       end
@@ -257,10 +258,9 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
     # NOTE: Same handler for soft_bounce and hard_bounce for now
     interpret(400..599) do |context, reply_code, reply_messages|
       unless (context.message.test?)
-        context.delivery_resolve!(
+        context.message.rejected!(
           result_code: "SMTP_#{reply_code}",
-          result_message: reply_messages.join(' '),
-          delivered: false
+          result_message: reply_messages.join(' ')
         )
       end
 
@@ -293,26 +293,22 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
       context.reply(".")
     end
 
-    default do |context, reply_code, reply_messages|
-      context.message.reply_code = "SMTP_#{reply_code}"
-      context.message.reply_message = reply_messages.join(' ')
-
-      # FIX: This needs to be a lot smarter and interpret responses better
-      context.message.state =
-        case (reply_code)
-        when 250
-          :delivered
-        else
-          :failed
-        end
-
-      context.delivery_resolve!(
-        result_code: "SMTP_#{reply_code}",
-        result_message: reply_messages.join(' '),
-        delivered: context.message.state == :delivered
+    interpret(250) do |context, reply_messages|
+      context.message.delivered!(
+        result_code: 'SMTP_250',
+        result_message: reply_messages.join(' ')
       )
 
       context.transition!(state: :sent)
+    end
+
+    default do |context, reply_code, reply_messages|
+      context.message.rejected!(
+        result_code: "SMTP_#{reply_code}",
+        result_message: reply_messages.join(' ')
+      )
+
+      context.transition!(state: :reset)
     end
   end
 
@@ -364,10 +360,11 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
 
   state(:terminated) do
     enter do |context|
-      context.delivery_queued_fail!(
-        result_code: 'SMTP_TERM',
-        result_message: 'Connection was terminated'
-      )
+      context.ready = false
+
+      if (context.message)
+        context.message.requeue!
+      end
 
       context.parent_transition!(state: :smtp_finished)
     end
@@ -375,6 +372,8 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
 
   state(:reset) do
     enter do |context|
+      context.message = nil
+
       context.reply('RSET')
     end
 

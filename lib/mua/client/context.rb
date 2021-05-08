@@ -52,8 +52,8 @@ Mua::Client::Context = Mua::State::Context.define(
   timeout: {
     default: Mua::Constants::TIMEOUT_DEFAULT
   },
-  delivery_queue: {
-    default: -> { [ ] }
+  batch: {
+    default: -> { Mua::Message::Batch.new }
   },
   delivery: {
     default: nil
@@ -61,11 +61,19 @@ Mua::Client::Context = Mua::State::Context.define(
   message: {
     default: nil
   },
+  connected: {
+    boolean: true,
+    default: false
+  },
   close_requested: {
     boolean: true,
     default: false
   },
   closed: {
+    boolean: true,
+    default: false
+  },
+  ready: {
     boolean: true,
     default: false
   },

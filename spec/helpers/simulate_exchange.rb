@@ -66,23 +66,27 @@ module SimulateExchange
 
       Async do |task|
         script['dialog'].each do |cmd|
+          p(cmd) if (ENV['DIALOG_DEBUG'])
+
           if (data = cmd['recv'])
             self.puts(data)
           elsif (data = cmd['send'])
             rspec.expect(self.gets).to rspec.eq(data)
           elsif (data = cmd['deliver'])
             [ data ].flatten.each do |message|
-              message = Mua::SMTP::Message.new(message)
+              message = Mua::Message.from(message)
               message.id ||= SecureRandom.uuid + '@example.net'
+
               @messages[message.id] = message
-              @context.deliver!(message)
+
+              @context.batch << message
             end
           elsif (data = cmd['quit'])
             @context.quit!
           elsif (data = cmd['verify_delivery'])
             [ data ].flatten.each do |delivery|
               message = @messages[delivery['id']]
-              rspec.expect(message).to rspec.be_kind_of(Mua::SMTP::Message)
+              rspec.expect(message).to rspec.be_kind_of(Mua::Message)
 
               delivery.each do |field, value|
                 rspec.expect(message.send(field)).to rspec.eq(value)

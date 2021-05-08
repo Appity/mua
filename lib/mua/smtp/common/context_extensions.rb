@@ -60,6 +60,7 @@ module Mua
 
         def close!
           self.input.close
+          self.connected = false
         end
 
         def log(channel, *data)

@@ -20,6 +20,10 @@ Mua::SMTP::Server::Context = Mua::State::Context.define(
   id: {
     default: -> { SecureRandom.uuid }
   },
+  connected: {
+    default: true,
+    boolean: true
+  },
   connected_at: {
     default: -> { Time.now.utc }
   },

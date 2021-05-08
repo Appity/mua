@@ -45,6 +45,20 @@ def samples(path, recursive: false, shuffle: false, limit: false, &block)
   files
 end
 
+def message_parse(path)
+  data = File.read(path).gsub(/\r?\n/, "\r\n")
+
+  parsed = Mail.new(data)
+
+  {
+    id: File.basename(path),
+    mail_from: parsed.from[0],
+    rcpt_to: parsed.to,
+    name: path.delete_prefix(Dir.pwd + '/'),
+    data: data
+  }
+end
+
 # == Main ===================================================================
 
 # NOTE: These need to be defined like x-y and are transformed to x_y
@@ -56,7 +70,8 @@ options = {
   'smtp-port': 25,
   'proxy-port': 1080,
   recursive: false,
-  'dry-run': false
+  'dry-run': false,
+  backoff: 5
 }
 
 program = OptionParser.new do |opts|
@@ -93,18 +108,12 @@ end
 messages = [ ]
 
 args.each do |path|
-  samples(path, shuffle: options[:shuffle], limit: options[:limit], recursive: options[:recursive]) do |f|
-    data = File.read(f).gsub(/\r?\n/, "\r\n")
-
-    parsed = Mail.new(data)
-
-    messages << {
-      id: File.basename(f),
-      mail_from: parsed.from[0],
-      rcpt_to: parsed.to,
-      name: f.delete_prefix(Dir.pwd + '/'),
-      data: data
-    }
+  if (File.directory?(path))
+    samples(path, shuffle: options[:shuffle], limit: options[:limit], recursive: options[:recursive]) do |file|
+      messages << message_parse(file)
+    end
+  elsif (File.file?(path))
+    messages << message_parse(path)
   end
 end
 
@@ -121,42 +130,70 @@ end
 start = Time.now.utc
 
 begin
+  queue = messages.dup
+  deliveries = [ ]
+
   Async do |reactor|
     options[:reactor] = reactor
 
-    if (options[:verbose])
-      via_proxy = options[:proxy_host] && (' through %s:%s' % [ options[:proxy_host], options[:proxy_port] ])
-
-      puts('%s:%d> Ready to initiate connection%s' % [
-        options[:smtp_host],
-        options[:smtp_port],
-        via_proxy
-      ])
-    end
-
-    client = Mua::SMTP::Client.new(**options) do |context, state, event, *args|
-      next unless (options[:verbose])
-
-      puts('%s:%d> %s %s %s' % [
-        context.smtp_host,
-        context.smtp_port,
-        state.name,
-        event,
-        args.any? ? args.inspect : ''
-      ])
-    end
-
-    deliveries = messages.map do |message|
+    while (queue.any?)
       if (options[:verbose])
-        puts '%s>> Queued message' % [ message[:id] ]
+        via_proxy = options[:proxy_host] && (' through %s:%s' % [ options[:proxy_host], options[:proxy_port] ])
+
+        puts('%s:%d> Ready to initiate connection%s' % [
+          options[:smtp_host],
+          options[:smtp_port],
+          via_proxy
+        ])
       end
 
-      client.deliver!(**message)
+      client = Mua::SMTP::Client.new(**options) do |context, state, event, *args|
+        next unless (options[:debug])
+
+        puts('%s:%d> %s %s %s' % [
+          context.smtp_host,
+          context.smtp_port,
+          state.name,
+          event,
+          args.any? ? args.inspect : ''
+        ])
+      end
+
+      while (message = queue.pop)
+        if (options[:verbose])
+          puts '%s> Queued message' % [ message[:id] ]
+        end
+
+        delivery = client.deliver!(**message).wait
+
+        deliveries << delivery
+
+        if (options[:verbose])
+          puts '%s> Message %sdelivered' % [ message[:id], delivery.delivered? ? '' : 'not ' ]
+        end
+
+        p client.context.closed?
+
+        unless (client.connected?)
+          if (options[:verbose])
+            puts '> Connection was closed'
+          end
+
+          break
+        end
+      end
+
+      client.quit!
+
+      # Short back-off before reconnecting
+      if (queue.any?)
+        if (options[:verbose])
+          puts '> Backing off %d second(s) before reconnecting' % [ options[:backoff] ]
+        end
+
+        reactor.sleep(options[:backoff])
+      end
     end
-
-    deliveries.map!(&:wait)
-
-    client.quit!
 
     deliveries.group_by(&:delivered?).each do |delivered, list|
       puts '%5.1f%% %s' % [
@@ -169,12 +206,14 @@ begin
   if (options[:stopwatch])
     delta = Time.now - start
 
+    delivered, failed = deliveries.partition(&:delivered?).map(&:length)
+
     mb = messages.map { |d| d[:data].bytesize }.sum / 1024**2
 
     puts('Sent %d message(s) in %.1fs at %.1fMPS (%.1fMB at %.1fMB/s)' % [
-      messages.length,
+      delivered,
       delta,
-      messages.length / delta,
+      delivered / delta,
       mb,
       mb / delta
     ])

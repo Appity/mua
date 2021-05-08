@@ -1,8 +1,11 @@
-class Mua::SMTP::Message
+require 'securerandom'
+
+class Mua::Message
   # == Constants ============================================================
 
   STATES = %i[
     queued
+    retry
     delivered
     test_passed
     test_failed
@@ -15,6 +18,8 @@ class Mua::SMTP::Message
 
   # == Extensions ===========================================================
 
+  include Comparable
+
   # == Properties ===========================================================
 
   attr_reader :id
@@ -26,8 +31,10 @@ class Mua::SMTP::Message
   attr_accessor :remote_ip
   attr_accessor :auth_username
 
-  attr_reader :reply_code
-  attr_accessor :reply_message
+  attr_reader :result_code
+  attr_accessor :result_message
+
+  attr_reader :delivery_results
 
   # == Class Methods ========================================================
 
@@ -35,12 +42,21 @@ class Mua::SMTP::Message
     STATES
   end
 
+  def self.from(message = nil, **args)
+    case (message)
+    when self
+      message
+    else
+      new(**(message || { }).merge(args))
+    end
+  end
+
   # == Instance Methods =====================================================
 
   def initialize(args = nil)
     args ||= { }
 
-    @id = args[:id] || args['id']
+    @id = args[:id] || args['id'] || SecureRandom.uuid
     @mail_from = args[:mail_from] || args['mail_from']
     @rcpt_to = [ args[:rcpt_to] || args['rcpt_to'] ].flatten.compact
     @data = (args[:data] || args['data']).to_s.gsub(/\r?\n/, "\r\n")
@@ -50,10 +66,26 @@ class Mua::SMTP::Message
     @auth_username = args[:auth_username] || args['auth_username']
 
     @state = (args[:state] || args['state'] || STATE_DEFAULT).to_sym
+
+    @delivery_results = [ ]
+    @processed = Async::Condition.new
   end
 
-  def rcpt_to_iterator
-    @rcpt_to_iterator ||= @rcpt_to.each
+  def hash
+    @id.hash
+  end
+
+  def <=>(message)
+    @id <=> message.id
+  end
+
+  def eql?(message)
+    self === message or @id == message.id
+  end
+  alias_method :equal?, :eql?
+
+  def each_rcpt
+    @each_rcpt ||= @rcpt_to.each
   end
 
   def test?
@@ -66,17 +98,45 @@ class Mua::SMTP::Message
     end
   end
 
+  def requeue!
+    throw :requeue
+  end
+
+  def processed!(result = nil)
+    @processed.signal(result || @delivery_results.last)
+  end
+
+  def wait
+    case (@state)
+    when :queued
+      @processed.wait
+    else
+      @delivery_results.last
+    end
+  end
+
   STATES.each do |s|
     define_method(:"#{s}?") do
       @state == s
     end
 
-    define_method(:"#{s}!") do
+    define_method(:"#{s}!") do |**delivery_result|
+      @delivery_results << Mua::Message::DeliveryResult.new(
+        **delivery_result,
+        message: self,
+        state: s
+      )
+
       @state = s
+      @result_code ||= delivery_result[:result_code]
+      @result_message ||= delivery_result[:result_message]
     end
   end
 
-  def reply_code=(v)
-    @reply_code = v
+  def result_code=(v)
+    @result_code = v
   end
 end
+
+require_relative './message/batch'
+require_relative './message/delivery_result'

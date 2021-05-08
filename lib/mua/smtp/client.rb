@@ -35,11 +35,10 @@ class Mua::SMTP::Client
     end
 
     @endpoint = Async::IO::Endpoint.tcp(@context.remote_ip, @context.remote_port)
-
-    @signal = Async::Condition.new
+    @condition = Async::Condition.new
 
     @task = Async do |task|
-      task.annotate "#{self.class}##{self.object_id} initialize"
+      task.annotate "#{self.class}##{self.object_id}"
 
       begin
         @endpoint.connect do |peer|
@@ -51,7 +50,7 @@ class Mua::SMTP::Client
 
           @interpreter = Mua::SMTP::Client::ProxyAwareInterpreter.new(@context)
 
-          @signal.signal
+          @condition.signal
 
           @interpreter.run(&block)
         end
@@ -63,21 +62,31 @@ class Mua::SMTP::Client
 
         @interpreter = Mua::SMTP::Client::ProxyAwareInterpreter.new(@context)
 
-        @signal.signal
+        @condition.signal
 
         @interpreter.run(&block)
       end
     end
 
-    @signal.wait
+    @condition.wait
+  end
+
+  def connected?
+    !@context.closed?
   end
 
   def state
     @interpreter.context.state
   end
 
-  def deliver!(**args)
-    @context.deliver!(Mua::SMTP::Message.new(**args))
+  def deliver!(...)
+    message = Mua::Message.from(...)
+
+    catch (:retry) do
+      @context.batch << message
+    end
+
+    message
   end
 
   def wait

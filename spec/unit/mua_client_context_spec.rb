@@ -28,14 +28,14 @@ RSpec.describe Mua::Client::Context, type: :reactor do
     expect(context).to_not be_tls_required
     expect(context).to_not be_proxy
     expect(context.timeout).to be(Mua::Constants::TIMEOUT_DEFAULT)
-    expect(context.delivery_queue).to eq([ ])
+    expect(context.batch).to be_empty
     expect(context.message).to be(nil)
     expect(context).to_not be_close_requested
   end
 
   it 'allows writing to properties' do
     context = Mua::Client::Context.new
-    message = Mua::SMTP::Message.new(
+    message = Mua::Message.new(
       mail_from: 'mail-from@example.org',
       rcpt_to: 'rcpt-to@example.org',
       data: 'From: Demo'
@@ -61,7 +61,7 @@ RSpec.describe Mua::Client::Context, type: :reactor do
     context.tls_requested = false
     context.tls_required!
     context.timeout = 999
-    context.delivery_queue << message
+    context.batch << message
     context.message = message
     context.close_requested!
 
@@ -87,25 +87,9 @@ RSpec.describe Mua::Client::Context, type: :reactor do
     expect(context).to be_tls_required
     expect(context).to be_proxy
     expect(context.timeout).to eq(999)
-    expect(context.delivery_queue).to eq([ message ])
+    expect(context.batch.include?(message))
+    expect(context.batch.queued?(message))
     expect(context.message).to be(message)
     expect(context).to be_close_requested
-  end
-
-  context 'has extensions' do
-    it 'to queue up messages' do
-      context = Mua::Client::Context.new
-      context.input = :dummy
-      
-      message = Mua::SMTP::Message.new(
-        mail_from: 'mail-from@example.org',
-        rcpt_to: 'rcpt-to@example.org',
-        data: 'From: Demo'
-      )
-
-      context.deliver!(message)
-
-      expect(context.delivery_queue.map(&:message)).to eq([ message ])
-    end
   end
 end

@@ -1,4 +1,5 @@
-Mua::Client::DeliveryResult = Mua::State::Context.define(
+Mua::Message::DeliveryResult = Mua::State::Context.define(
+  initial_state: :queued,
   message: {
     # Arbitrary message payload object
   },
@@ -16,9 +17,5 @@ Mua::Client::DeliveryResult = Mua::State::Context.define(
   },
   target_port: {
     convert: :to_i.to_proc
-  },
-  delivered: {
-    boolean: true,
-    default: false
   }
 )

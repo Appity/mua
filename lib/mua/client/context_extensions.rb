@@ -34,76 +34,42 @@ module Mua::Client::ContextExtensions
     !!self.proxy_host
   end
 
-  def deliver!(message)
-    delivery = Mua::Client::Delivery.new(message)
-
-    if (self.connected?)
-      self.delivery_queue << delivery
-
-      if (self.state == :ready)
-        # Force re-entry to begin sending queued messages
-        self.interrupt_read!(state: :ready)
-      end
-    else
-      delivery.resolve(
-        Mua::Client::DeliveryResult.new(
-          message: message,
-          result_code: 'CONN_FAIL',
-          result_message: 'Connection failed.',
-          proxy_host: self.proxy_host,
-          proxy_port: self.proxy_port,
-          target_host: self.smtp_host,
-          target_port: self.smtp_port,
-          delivered: false
-        )
-      )
-    end
-
-    delivery
+  def batch_poll!
+    self.message = self.batch.next
   end
 
-  def delivery_pop
-    # REFACTOR: Replace with Async::Queue?
-    self.delivery = self.delivery_queue.shift
-    self.message = self.delivery&.message
-  end
+  # def delivery_resolve!(**args)
+  #   return unless (self.delivery)
 
-  def delivery_resolve!(**args)
-    return unless (self.delivery)
+  #   self.delivery.resolve(
+  #     Mua::Message::DeliveryResult.new(**{
+  #       message: self.message,
+  #       proxy_host: self.proxy_host,
+  #       proxy_port: self.proxy_port,
+  #       target_host: self.smtp_host,
+  #       target_port: self.smtp_port,
+  #       delivered: false
+  #     }.merge(args))
+  #   )
+  # end
 
-    self.delivery.resolve(
-      Mua::Client::DeliveryResult.new(**{
-        message: self.message,
-        proxy_host: self.proxy_host,
-        proxy_port: self.proxy_port,
-        target_host: self.smtp_host,
-        target_port: self.smtp_port,
-        delivered: false
-      }.merge(args))
-    )
-  end
-
-  def delivery_queued_fail!(**args)
-    [ self.delivery ].concat(self.delivery_queue).compact.each do |delivery|
-      delivery.resolve(
-        Mua::Client::DeliveryResult.new(**{
-          message: delivery.message,
-          proxy_host: self.proxy_host,
-          proxy_port: self.proxy_port,
-          target_host: self.smtp_host,
-          target_port: self.smtp_port,
-          delivered: false
-        }.merge(args))
-      )
-    end
-
-    self.delivery = nil
-    self.delivery_queue.clear
-  end
-
-  def delivery_queued?
-    self.delivery_queue.any?
-  end
+  # def delivery_queued_fail!(**args)
+  #   [ self.delivery ].concat(self.delivery_queue).compact.each do |delivery|
+  #     delivery.resolve(
+  #       Mua::Message::DeliveryResult.new(**{
+  #         message: delivery.message,
+  #         proxy_host: self.proxy_host,
+  #         proxy_port: self.proxy_port,
+  #         target_host: self.smtp_host,
+  #         target_port: self.smtp_port,
+  #         delivered: false
+  #       }.merge(args))
+  #     )
+  #   end
+  #
+  #   self.delivery = nil
+  #   self.delivery_queue.clear
+  # end
 
   def quit!
     self.close_requested!
@@ -115,6 +81,7 @@ module Mua::Client::ContextExtensions
 
   def interrupt_read!(state: nil)
     @state_target = state
+
     self.read_task&.stop
   end
 

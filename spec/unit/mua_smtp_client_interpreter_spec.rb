@@ -52,7 +52,7 @@ RSpec.describe Mua::SMTP::Client::Interpreter, type: [ :interpreter, :reactor ],
       io.puts('220 long')
       expect(io.gets).to eq('EHLO localhost')
 
-      expect(context.smtp_banner).to eq([ 
+      expect(context.smtp_banner).to eq([
         'mail.example.com SMTP Example',
         'this is really',
         'really',

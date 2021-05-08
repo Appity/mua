@@ -12,7 +12,7 @@ module Mua::SMTP::Server::ContextExtensions
   end
 
   def reset_transaction!
-    self.message = Mua::SMTP::Message.new
+    self.message = Mua::Message.new
   end
 
   def banner

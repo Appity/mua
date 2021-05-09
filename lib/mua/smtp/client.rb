@@ -5,14 +5,6 @@ require_relative '../client/context'
 class Mua::SMTP::Client
   # == Constants ============================================================
 
-  DEFAULTS = {
-    smtp_host: nil,
-    smtp_port: 25,
-    socks5_host: nil,
-    socks5_port: 1080,
-    timeout: 30
-  }.freeze
-
   # == Extensions ===========================================================
 
   # == Properties ===========================================================
@@ -24,7 +16,7 @@ class Mua::SMTP::Client
   # == Instance Methods =====================================================
 
   def initialize(**options, &block)
-    @context = Mua::Client::Context.new(**DEFAULTS.merge(options))
+    @context = Mua::Client::Context.new(**options)
 
     if (@context.proxy?)
       @context.remote_ip = @context.proxy_host
@@ -40,24 +32,33 @@ class Mua::SMTP::Client
     @task = Async do |task|
       task.annotate "#{self.class}##{self.object_id}"
 
-      begin
-        @endpoint.connect do |peer|
-          peer.timeout = @context.timeout
+      task.with_timeout(@context.timeout) do
+        begin
+          @endpoint.connect do |peer|
+            peer.timeout = @context.timeout
 
-          @context.input = Async::IO::Stream.new(peer)
-          @context.assign_local_ip!
-          @context.assign_remote_ip!
+            @context.input = Async::IO::Stream.new(peer)
+            @context.assign_local_ip!
+            @context.assign_remote_ip!
 
-          @interpreter = Mua::SMTP::Client::ProxyAwareInterpreter.new(@context)
+            @interpreter = Mua::SMTP::Client::ProxyAwareInterpreter.new(@context)
 
-          ready.signal
+            ready.signal(true)
 
-          @interpreter.run(&block)
+            @interpreter.run(&block)
+          end
+
+        rescue Errno::ECONNREFUSED
+          task.sleep(@context.backoff)
+          retry
+        rescue Async::Stop
+          # This can happen if interrupted or force stopped
         end
-
-      rescue Async::Stop
-        # This can happen if interrupted or force stopped
       end
+
+    rescue Async::TimeoutError
+      # Connection failed, so just bail
+      ready.signal(false)
     end
 
     ready.wait

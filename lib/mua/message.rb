@@ -15,6 +15,7 @@ class Mua::Message
   ].freeze
 
   STATE_DEFAULT = :queued
+  RETRY_LIMIT_DEFAULT = 2
 
   # == Extensions ===========================================================
 
@@ -70,6 +71,7 @@ class Mua::Message
     @state = (args[:state] || args['state'] || STATE_DEFAULT).to_sym
 
     @batch = args[:batch]
+    @retry_limit = args[:retry_limit]&.to_i || RETRY_LIMIT_DEFAULT
 
     @delivery_results = [ ]
     @processed = Async::Condition.new
@@ -103,6 +105,8 @@ class Mua::Message
   end
 
   def requeue!
+    return if (@retry_limit and @delivery_results.length >= @retry_limit)
+
     @batch&.requeue(self)
   end
 
@@ -141,6 +145,10 @@ class Mua::Message
 
   def result_code=(v)
     @result_code = v
+  end
+
+  def inspect
+    "<#{self.class}##{self.object_id} @id=#{@id.inspect} @mail_from=#{@mail_from.inspect} @rcpt_to=#{@rcpt_to.inspect} @delivery_results=#{@delivery_results.length}>"
   end
 end
 

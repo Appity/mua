@@ -52,6 +52,9 @@ Mua::Client::Context = Mua::State::Context.define(
   timeout: {
     default: Mua::Constants::TIMEOUT_DEFAULT
   },
+  backoff: {
+    default: Mua::Constants::BACKOFF_DEFAULT
+  },
   batch: {
     default: -> { Mua::Message::Batch.new }
   },

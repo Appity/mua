@@ -118,7 +118,7 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
 
           context.reply(reply)
         else
-          context.reply('501 Email address is not RFC compliant')
+          context.reply('553 Email address is not RFC compliant')
         end
       else
         context.reply('503 Sender not specified')

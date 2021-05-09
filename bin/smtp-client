@@ -45,7 +45,7 @@ def samples(path, recursive: false, shuffle: false, limit: false, &block)
   files
 end
 
-def message_parse(path)
+def message_parse(path, options)
   data = File.read(path).gsub(/\r?\n/, "\r\n")
 
   parsed = Mail.new(data)
@@ -55,7 +55,8 @@ def message_parse(path)
     mail_from: parsed.from[0],
     rcpt_to: parsed.to,
     name: path.delete_prefix(Dir.pwd + '/'),
-    data: data
+    data: data,
+    retry_limit: options[:retries]
   }
 end
 
@@ -71,7 +72,8 @@ options = {
   'proxy-port': 1080,
   recursive: false,
   'dry-run': false,
-  backoff: 5
+  backoff: 5,
+  retries: 1
 }
 
 program = OptionParser.new do |opts|
@@ -90,6 +92,8 @@ program = OptionParser.new do |opts|
   opts.on('-S', '--shuffle', 'Shuffle sending order')
   opts.on('-f', '--fork COUNT', 'Fork N times before sending', Integer)
   opts.on('-w', '--stopwatch', 'Enable performance metrics')
+  opts.on('--retries LIMIT', 'Limit to a particular number of retries')
+  opts.on('--report', 'Report on failed deliveries')
 end
 
 args = program.parse!(ARGV, into: options)
@@ -111,10 +115,10 @@ Async do
   args.each do |path|
     if (File.directory?(path))
       samples(path, shuffle: options[:shuffle], limit: options[:limit], recursive: options[:recursive]) do |file|
-        messages << message_parse(file)
+        messages << message_parse(file, options)
       end
     elsif (File.file?(path))
-      messages << message_parse(path)
+      messages << message_parse(path, options)
     end
   end
 end
@@ -181,7 +185,7 @@ begin
 
     puts(
       batch.message_report.map do |state, count|
-        '%d %s (%5.1f%%)' % [
+        '%d %s (%.1f%%)' % [
           count,
           state,
           count * 100.0 / batch.length
@@ -204,6 +208,21 @@ begin
       mb,
       mb / delta
     ])
+  end
+
+  if (options[:report])
+    puts 'Failed deliveries:'
+
+    batch.messages.reject(&:delivered?).each do |message|
+      puts 'Message-ID: %s' % message.id
+      puts '  From: %s' % message.mail_from
+      puts '  To: %s' % message.rcpt_to
+      puts '  Attempts:'
+
+      message.delivery_results.each do |result|
+        puts '    %s %s' % [ result.result_code, result.result_message ]
+      end
+    end
   end
 
 rescue Interrupt

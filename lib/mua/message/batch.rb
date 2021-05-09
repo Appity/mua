@@ -153,4 +153,8 @@ class Mua::Message::Batch < Async::Notification
       yield(message)
     end
   end
+
+  def inspect
+    "<#{self.class}##{self.object_id} length=#{@messages.length}>"
+  end
 end

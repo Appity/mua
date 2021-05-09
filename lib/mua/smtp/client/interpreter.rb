@@ -399,7 +399,7 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
 
     context.message&.failed!(
       result_code: "SMTP_#{result_code}",
-      message: result_messages.join(' ')
+      result_message: result_messages.join(' ')
     )
 
     context.transition!(state: :quit)

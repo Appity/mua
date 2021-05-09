@@ -186,6 +186,7 @@ RSpec.describe Mua::Message::Batch, type: :reactor, timeout: 5 do
         if (message.delivery_results.any?)
           message.delivered!(result_code: 'SMTP_250')
           messages << message
+          message.processed!
         else
           message.retry!(result_code: 'SMTP_550')
           message.requeue!

@@ -99,7 +99,7 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
 
         context.reply(reply)
       else
-        context.reply('501 Email address is not RFC compliant')
+        context.reply('553 Email address is not RFC compliant')
       end
     end
 
@@ -319,7 +319,7 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
   end
 
   default do |context, error|
-    context.reply('500 Invalid or incomplete command')
+    context.reply('502 Invalid or incomplete command')
   end
 
   rescue_from(Errno::EPIPE) do |context|

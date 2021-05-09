@@ -9,19 +9,19 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
 ) do
   parser do |context|
     context.read_line do |line|
-      reply_code, reply_message, continuation = Mua::SMTP::Client::Support.unpack_reply(line)
+      result_code, message, continuation = Mua::SMTP::Client::Support.unpack_reply(line)
 
       if (continuation)
-        context.reply_buffer << reply_message
+        context.buffer << message
         context.parser_redo!
       else
-        buffer, context.reply_buffer = context.reply_buffer, [ ]
-        buffer << reply_message
+        buffer, context.buffer = context.buffer, [ ]
+        buffer << message
 
-        context.reply_code = "SMTP_#{reply_code}"
-        context.reply_message = buffer
+        context.result_code = "SMTP_#{result_code}"
+        context.result_message = buffer
 
-        [ reply_code, buffer ]
+        [ result_code, buffer ]
       end
     end
   end
@@ -149,13 +149,13 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
       context.transition!(state: :established)
     end
 
-    interpret(535) do |context, reply_messages|
+    interpret(535) do |context, result_messages|
       # FIX: Not compatible with new model
-      handle_reply_continuation(535, reply_message) do |reply_code, reply_message|
-        @error = reply_message
+      handle_reply_continuation(535, message) do |result_code, message|
+        @error = message
 
-        context.debug_notification(:error, "[#{@state}] #{reply_code} #{reply_message}")
-        context.error_notification(reply_code, reply_message)
+        context.debug_notification(:error, "[#{@state}] #{result_code} #{message}")
+        context.error_notification(result_code, message)
 
         context.transition!(state: :quit)
       end
@@ -211,8 +211,8 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
       context.transition!(state: :rcpt_to)
     end
 
-    interpret(503) do |context, reply_messages|
-      if (reply_messages[0].match(/5\.5\.1/))
+    interpret(503) do |context, result_messages|
+      if (result_messages[0].match(/5\.5\.1/))
         context.transition!(state: :re_helo)
       end
     end
@@ -240,7 +240,7 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
       context.transition!(state: :reset)
     end
 
-    interpret(250) do |context, reply_messages|
+    interpret(250) do |context, result_messages|
       # FIX: Should test more than one recipient
       if (context.message.test?)
         message.status = :test_passed
@@ -256,11 +256,11 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
     end
 
     # NOTE: Same handler for soft_bounce and hard_bounce for now
-    interpret(400..599) do |context, reply_code, reply_messages|
+    interpret(400..599) do |context, result_code, result_messages|
       unless (context.message.test?)
         context.message.rejected!(
-          result_code: "SMTP_#{reply_code}",
-          result_message: reply_messages.join(' ')
+          result_code: "SMTP_#{result_code}",
+          result_message: result_messages.join(' ')
         )
       end
 
@@ -293,19 +293,19 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
       context.reply(".")
     end
 
-    interpret(250) do |context, reply_messages|
+    interpret(250) do |context, result_messages|
       context.message.delivered!(
         result_code: 'SMTP_250',
-        result_message: reply_messages.join(' ')
+        result_message: result_messages.join(' ')
       )
 
       context.transition!(state: :sent)
     end
 
-    default do |context, reply_code, reply_messages|
+    default do |context, result_code, result_messages|
       context.message.rejected!(
-        result_code: "SMTP_#{reply_code}",
-        result_message: reply_messages.join(' ')
+        result_code: "SMTP_#{result_code}",
+        result_message: result_messages.join(' ')
       )
 
       context.transition!(state: :reset)
@@ -362,9 +362,7 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
     enter do |context|
       context.ready = false
 
-      if (context.message)
-        context.message.requeue!
-      end
+      context.message&.requeue!
 
       context.parent_transition!(state: :smtp_finished)
     end
@@ -392,18 +390,17 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
     end
   end
 
-  default do |context, reply_code, reply_messages|
+  default do |context, result_code, result_messages|
     # FIX: Determine if it should RSET or QUIT
     # context.transition!(state: @state == :initialized ? :terminated : :reset)
 
     # context.reply('QUIT')
     # context.terminated!
 
-    if (message = context.message)
-      message.reply_code = "SMTP_#{reply_code}"
-      message.reply_message = reply_messages.join(' ')
-      message.failed!
-    end
+    context.message&.failed!(
+      result_code: "SMTP_#{result_code}",
+      message: result_messages.join(' ')
+    )
 
     context.transition!(state: :quit)
   end

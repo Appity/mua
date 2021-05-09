@@ -13,8 +13,8 @@ Mua::Client::Context = Mua::State::Context.define(
   :proxy_host,
   :proxy_port,
   :read_task,
-  :reply_code,
-  :reply_message,
+  :result_code,
+  :result_message,
   :exception,
   :connection_stage,
   :local_ip,
@@ -22,7 +22,7 @@ Mua::Client::Context = Mua::State::Context.define(
   :remote_ip,
   :remote_port,
   :smtp_banner,
-  reply_buffer: {
+  buffer: {
     default: -> { [ ] }
   },
   smtp_timeout: {

@@ -107,17 +107,19 @@ end
 
 messages = [ ]
 
-args.each do |path|
-  if (File.directory?(path))
-    samples(path, shuffle: options[:shuffle], limit: options[:limit], recursive: options[:recursive]) do |file|
-      messages << message_parse(file)
+Async do
+  args.each do |path|
+    if (File.directory?(path))
+      samples(path, shuffle: options[:shuffle], limit: options[:limit], recursive: options[:recursive]) do |file|
+        messages << message_parse(file)
+      end
+    elsif (File.file?(path))
+      messages << message_parse(path)
     end
-  elsif (File.file?(path))
-    messages << message_parse(path)
   end
 end
 
-if (options[:debug])
+if (options[:verbose])
   puts("> Loaded %d sample(s)" % messages.length)
 end
 
@@ -130,13 +132,15 @@ end
 start = Time.now.utc
 
 begin
-  queue = messages.dup
-  deliveries = [ ]
+  batch = nil
 
   Async do |reactor|
     options[:reactor] = reactor
 
-    while (queue.any?)
+    batch = Mua::Message::Batch.new(messages)
+    options[:batch] = batch
+
+    while (batch.queue_any?)
       if (options[:verbose])
         via_proxy = options[:proxy_host] && (' through %s:%s' % [ options[:proxy_host], options[:proxy_port] ])
 
@@ -159,61 +163,44 @@ begin
         ])
       end
 
-      while (message = queue.pop)
-        if (options[:verbose])
-          puts '%s> Queued message' % [ message[:id] ]
-        end
-
-        delivery = client.deliver!(**message).wait
-
-        deliveries << delivery
-
-        if (options[:verbose])
-          puts '%s> Message %sdelivered' % [ message[:id], delivery.delivered? ? '' : 'not ' ]
-        end
-
-        p client.context.closed?
-
-        unless (client.connected?)
-          if (options[:verbose])
-            puts '> Connection was closed'
-          end
-
-          break
-        end
-      end
-
       client.quit!
+      client.wait
 
       # Short back-off before reconnecting
-      if (queue.any?)
+      if (batch.queue_any?)
         if (options[:verbose])
-          puts '> Backing off %d second(s) before reconnecting' % [ options[:backoff] ]
+          puts '> Backing off %d second(s) before reconnecting to deliver remaining %d message(s)' % [
+            options[:backoff],
+            batch.queue_length
+          ]
         end
 
         reactor.sleep(options[:backoff])
       end
     end
 
-    deliveries.group_by(&:delivered?).each do |delivered, list|
-      puts '%5.1f%% %s' % [
-        list.length * 100.0 / deliveries.length,
-        delivered ? 'Delivered' : 'Not Delivered'
-      ]
-    end
+    puts(
+      batch.message_report.map do |state, count|
+        '%d %s (%5.1f%%)' % [
+          count,
+          state,
+          count * 100.0 / batch.length
+        ]
+      end.join(', ')
+    )
   end.wait
 
   if (options[:stopwatch])
     delta = Time.now - start
 
-    delivered, failed = deliveries.partition(&:delivered?).map(&:length)
+    report = batch.message_report
 
-    mb = messages.map { |d| d[:data].bytesize }.sum / 1024**2
+    mb = batch.messages.map { |d| d.data.bytesize }.sum / 1024**2
 
     puts('Sent %d message(s) in %.1fs at %.1fMPS (%.1fMB at %.1fMB/s)' % [
-      delivered,
+      report[:delivered],
       delta,
-      delivered / delta,
+      report[:delivered] / delta,
       mb,
       mb / delta
     ])

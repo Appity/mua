@@ -41,7 +41,7 @@ RSpec.describe Mua::SOCKS5::Client::Interpreter, type: :reactor, timeout: 5 do
   end
 
   it 'can handle a variety of SOCKS5 general server failure issues' do
-    [ 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 ].each do |reply_code|
+    [ 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 ].each do |result_code|
       MockStream.context_writable_io(Mua::Client::Context) do |context, io|
         expect(context).to be_kind_of(Mua::Client::Context)
 
@@ -76,13 +76,13 @@ RSpec.describe Mua::SOCKS5::Client::Interpreter, type: :reactor, timeout: 5 do
 
           expect(read).to eq([ 127, 0, 0, 1, 1025 ])
 
-          io.write([ 5, reply_code, 1, 127, 0, 0, 1, 1025 ].pack('CCxCC4n'))
+          io.write([ 5, result_code, 1, 127, 0, 0, 1, 1025 ].pack('CCxCC4n'))
           io.flush
 
           task.sleep(0.05)
         end.wait
 
-        expect(context.reply_code).to eq('SOCKS5_ERR%d' % reply_code)
+        expect(context.result_code).to eq('SOCKS5_ERR%d' % result_code)
       end
     end
   end
@@ -119,7 +119,7 @@ RSpec.describe Mua::SOCKS5::Client::Interpreter, type: :reactor, timeout: 5 do
         task.sleep(0.05)
       end.wait
 
-      expect(context.reply_code).to eq('ERRNO_EPIPE')
+      expect(context.result_code).to eq('ERRNO_EPIPE')
     end
   end
 end

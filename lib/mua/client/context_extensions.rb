@@ -102,19 +102,19 @@ module Mua::Client::ContextExtensions
     # ...
   end
 
-  def handle_reply_continuation(reply_code, reply_message, continues)
-    @reply_message ||= ''
+  def handle_reply_continuation(result_code, result_message, continues)
+    @result_message ||= ''
 
-    if (preamble = @reply_message.split(/\s/).first)
-      reply_message.sub!(/^#{preamble}/, '')
+    if (preamble = @result_message.split(/\s/).first)
+      result_message.sub!(/^#{preamble}/, '')
     end
 
-    @reply_message << reply_message.gsub(/\s+/, ' ')
+    @result_message << result_message.gsub(/\s+/, ' ')
 
     unless (continues)
-      yield(reply_code, @reply_message)
+      yield(result_code, @result_message)
 
-      @reply_message = nil
+      @result_message = nil
     end
   end
 

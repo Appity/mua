@@ -35,7 +35,7 @@ class Mua::SMTP::Client
     end
 
     @endpoint = Async::IO::Endpoint.tcp(@context.remote_ip, @context.remote_port)
-    @condition = Async::Condition.new
+    ready = Async::Condition.new
 
     @task = Async do |task|
       task.annotate "#{self.class}##{self.object_id}"
@@ -50,25 +50,17 @@ class Mua::SMTP::Client
 
           @interpreter = Mua::SMTP::Client::ProxyAwareInterpreter.new(@context)
 
-          @condition.signal
+          ready.signal
 
           @interpreter.run(&block)
         end
 
       rescue Async::Stop
         # This can happen if interrupted or force stopped
-      rescue Exception => e
-        @context.exception = e
-
-        @interpreter = Mua::SMTP::Client::ProxyAwareInterpreter.new(@context)
-
-        @condition.signal
-
-        @interpreter.run(&block)
       end
     end
 
-    @condition.wait
+    ready.wait
   end
 
   def connected?
@@ -82,9 +74,7 @@ class Mua::SMTP::Client
   def deliver!(...)
     message = Mua::Message.from(...)
 
-    catch (:retry) do
-      @context.batch << message
-    end
+    @context.batch << message
 
     message
   end

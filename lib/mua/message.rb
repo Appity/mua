@@ -36,6 +36,8 @@ class Mua::Message
 
   attr_reader :delivery_results
 
+  attr_accessor :batch
+
   # == Class Methods ========================================================
 
   def self.states
@@ -66,6 +68,8 @@ class Mua::Message
     @auth_username = args[:auth_username] || args['auth_username']
 
     @state = (args[:state] || args['state'] || STATE_DEFAULT).to_sym
+
+    @batch = args[:batch]
 
     @delivery_results = [ ]
     @processed = Async::Condition.new
@@ -99,10 +103,12 @@ class Mua::Message
   end
 
   def requeue!
-    throw :requeue
+    @batch&.requeue(self)
   end
 
   def processed!(result = nil)
+    @batch&.processed(self)
+
     @processed.signal(result || @delivery_results.last)
   end
 

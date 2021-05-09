@@ -20,11 +20,11 @@ Mua::SOCKS5::Client::Interpreter = Mua::Interpreter.define(
       socks_methods = [
         Mua::Constants::SOCKS5_METHOD[:no_auth]
       ]
-      
+
       if (context.proxy_username)
         socks_methods << Mua::Constants::SOCKS5_METHOD[:username_password]
       end
-      
+
       context.proxy_port ||= Mua::Constants::SERVICE_PORT[:socks5]
 
       context.debug_notification(:proxy, "Initiating proxy connection through #{context.proxy_host}:#{context.proxy_port}")
@@ -36,9 +36,9 @@ Mua::SOCKS5::Client::Interpreter = Mua::Interpreter.define(
         *socks_methods
       )
     end
-    
+
     parser(exactly: 2, unpack: 'CC')
-    
+
     interpret(Mua::Constants::SOCKS5_VERSION) do |context, auth_method|
       case (auth_method)
       when Mua::Constants::SOCKS5_METHOD[:username_password]
@@ -50,11 +50,11 @@ Mua::SOCKS5::Client::Interpreter = Mua::Interpreter.define(
 
     default do |context, _reply|
       # Some kind of error, so abandon connection.
-      context.reply_code = 'SOCKS_ERR_PROTOCOL_VERSION'
+      context.result_code = 'SOCKS_ERR_PROTOCOL_VERSION'
       context.parent_transition!(state: :proxy_failed)
     end
   end
-  
+
   state(:request) do
     enter do |context|
       case (context.smtp_host_addr_type)
@@ -109,14 +109,14 @@ Mua::SOCKS5::Client::Interpreter = Mua::Interpreter.define(
         }
       ]
     end
-  
+
     interpret(0) do |context, _meta|
       # 0 = Succeeded
       context.parent_transition!(state: :proxy_connected)
     end
-    
+
     default do |context, reply|
-      context.reply_code = "SOCKS5_ERR#{reply}"
+      context.result_code = "SOCKS5_ERR#{reply}"
 
       context.close!
       context.parent_transition!(state: :proxy_failed)
@@ -142,9 +142,9 @@ Mua::SOCKS5::Client::Interpreter = Mua::Interpreter.define(
       # 0 = Succeeded
       context.parent_transition!(state: :proxy_connected)
     end
-    
+
     default do |context, reply|
-      context.reply_code = "SOCKS_ERR#{reply}"
+      context.result_code = "SOCKS_ERR#{reply}"
 
       context.close!
       context.parent_transition!(state: :proxy_failed)
@@ -167,9 +167,9 @@ Mua::SOCKS5::Client::Interpreter = Mua::Interpreter.define(
       # 0 = Succeeded
       context.parent_transition!(state: :proxy_connected)
     end
-    
+
     default do |context, reply|
-      context.reply_code = "SOCKS5_ERR#{reply}"
+      context.result_code = "SOCKS5_ERR#{reply}"
 
       context.close!
       context.parent_transition!(state: :proxy_failed)
@@ -191,18 +191,18 @@ Mua::SOCKS5::Client::Interpreter = Mua::Interpreter.define(
         password
       )
     end
-    
+
     parser do |context, s|
       # TODO: Implement authentication support
     end
-    
+
     interpret(0) do |context|
       context.transition!(state: :request)
     end
   end
 
   rescue_from(Errno::EPIPE) do |context|
-    context.reply_code = 'ERRNO_EPIPE'
+    context.result_code = 'ERRNO_EPIPE'
 
     context.close!
     context.parent_transition!(state: :proxy_failed)

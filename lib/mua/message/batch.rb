@@ -12,6 +12,8 @@ class Mua::Message::Batch < Async::Notification
 
   # == Properties ===========================================================
 
+  attr_reader :messages
+
   # == Class Methods ========================================================
 
   # == Instance Methods =====================================================
@@ -26,6 +28,7 @@ class Mua::Message::Batch < Async::Notification
     @queue = [ ]
 
     @messages.each do |message|
+      message.batch = self
       @queue << message
     end
 
@@ -42,12 +45,24 @@ class Mua::Message::Batch < Async::Notification
     @closed = true
   end
 
+  def requeue(message)
+    @queue << message
+
+    self.signal
+  end
+
+  def processed(message)
+    @processed << message
+  end
+
   def <<(message)
     if (@closed)
       raise QueueClosedError, 'Unable to write to closed queue'
     end
 
-    @queue << Mua::Message.from(message)
+    @queue << Mua::Message.from(message).tap do |message|
+      message.batch = self
+    end
 
     self.signal
   end
@@ -115,18 +130,7 @@ class Mua::Message::Batch < Async::Notification
 
       if (message = @queue.shift)
         if (block_given?)
-          requeued = true
-
-          catch(:requeue) do
-            yield(message)
-
-            requeued = false
-          end
-
-          if (requeued)
-            @queue << message
-            return
-          end
+          yield(message)
         end
 
         break message
@@ -144,23 +148,9 @@ class Mua::Message::Batch < Async::Notification
 
       return if (@closed and @queue.empty?)
 
-      accepted = false
-
       message = @queue.shift
 
-      catch(:requeue) do
-        yield(message)
-
-        accepted = true
-      end
-
-      if (accepted)
-        message.processed!
-        @processed << message
-      else
-        @queue.push(message)
-        self.signal
-      end
+      yield(message)
     end
   end
 end

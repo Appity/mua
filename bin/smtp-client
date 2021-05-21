@@ -73,7 +73,8 @@ options = {
   recursive: false,
   'dry-run': false,
   backoff: 5,
-  retries: 1
+  retries: 1,
+  connections: 1
 }
 
 program = OptionParser.new do |opts|
@@ -88,6 +89,7 @@ program = OptionParser.new do |opts|
   opts.on('-t', '--timeout TIMEOUT', 'Set SMTP command timeout (seconds)', Integer)
   opts.on('-R', '--recursive', 'Import email data recurisvely')
   opts.on('-y', '--dry-run', 'Dry run, do not actually send')
+  opts.on('-c', '--connections COUNT', 'Number of concurrent connections', Integer)
   opts.on('-l', '--limit LIMIT', 'Limit sending volume', Integer)
   opts.on('-S', '--shuffle', 'Shuffle sending order')
   opts.on('-f', '--fork COUNT', 'Fork N times before sending', Integer)
@@ -155,20 +157,19 @@ begin
         ])
       end
 
-      client = Mua::SMTP::Client.new(**options) do |context, state, event, *args|
-        next unless (options[:debug])
+      options[:connections].times.map do
+        Mua::SMTP::Client.new(**options) do |context, state, event, *args|
+          next unless (options[:debug])
 
-        puts('%s:%d> %s %s %s' % [
-          context.smtp_host,
-          context.smtp_port,
-          state.name,
-          event,
-          args.any? ? args.inspect : ''
-        ])
-      end
-
-      client.quit!
-      client.wait
+          puts('%s:%d> %s %s %s' % [
+            context.smtp_host,
+            context.smtp_port,
+            state.name,
+            event,
+            args.any? ? args.inspect : ''
+          ])
+        end
+      end.each(&:wait)
 
       # Short back-off before reconnecting
       if (batch.queue_any?)
@@ -211,16 +212,20 @@ begin
   end
 
   if (options[:report])
-    puts 'Failed deliveries:'
+    failed = batch.messages.reject(&:delivered?)
 
-    batch.messages.reject(&:delivered?).each do |message|
-      puts 'Message-ID: %s' % message.id
-      puts '  From: %s' % message.mail_from
-      puts '  To: %s' % message.rcpt_to
-      puts '  Attempts:'
+    if (failed.any?)
+      puts 'Failed deliveries:'
 
-      message.delivery_results.each do |result|
-        puts '    %s %s' % [ result.result_code, result.result_message ]
+      failed.reject(&:delivered?).each do |message|
+        puts 'Message-ID: %s' % message.id
+        puts '  From: %s' % message.mail_from
+        puts '  To: %s' % message.rcpt_to
+        puts '  Attempts:'
+
+        message.delivery_results.each do |result|
+          puts '    %s %s' % [ result.result_code, result.result_message ]
+        end
       end
     end
   end

@@ -12,7 +12,7 @@ module TestTriggerHelper
       def triggered
         @triggered ||= Hash.new(false)
       end
-      
+
       def trigger(action, value = true)
         self.triggered[action] = value
       end

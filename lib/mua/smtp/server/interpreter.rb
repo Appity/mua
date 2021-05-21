@@ -55,6 +55,7 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
         context.reply(message)
         context.reply('250-AUTH %s' % context.auth.map { |a| a.to_s.upcase }.join(" "))
         context.reply('250-STARTTLS') if (context.tls_configured? and context.tls_advertise?)
+        context.reply('250-PIPELINING') if (context.pipelining?)
         context.reply('250 SIZE %d' % context.size_limit)
       else
         context.log(:debug, "#{context.remote_ip}:#{context.remote_port} to #{context.local_ip}:#{context.local_port} Rejecting connection from #{helo_hostname} because of invalid FQDN")

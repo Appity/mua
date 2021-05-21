@@ -31,13 +31,14 @@ class Mua::SMTP::Server
 
   # == Instance Methods =====================================================
 
-  def initialize(interpreter: nil, hostname: nil, bind: nil, port: nil, start: true, tls_key_path: nil, tls_cert_path: nil, tls_initial: false, timeout: nil, logger: nil, &events)
+  def initialize(interpreter: nil, hostname: nil, bind: nil, port: nil, start: true, tls_key_path: nil, tls_cert_path: nil, tls_initial: false, pipelining: nil, timeout: nil, logger: nil, &events)
     @interpreter = interpreter || self.class.interpreter
     @hostname = hostname
     @bind = bind || BIND_DEFAULT
     @port = port || PORT_DEFAULT
     @timeout = timeout || TIMEOUT_DEFAULT
     @logger = logger
+    @pipelining = !!pipelining
 
     @tls_key_path = tls_key_path
     @tls_cert_path = tls_cert_path
@@ -67,6 +68,7 @@ class Mua::SMTP::Server
       server.accept_each do |peer|
         peer.timeout = @timeout
 
+        # FIX: Allow submitting context options to new()
         @interpreter.new(
           # FIX: Force TLS if necessary here with if (tls_initial?)
           Async::IO::Stream.new(peer)
@@ -80,6 +82,7 @@ class Mua::SMTP::Server
           context.tls_key_path = @tls_key_path
           context.tls_cert_path = @tls_cert_path
           context.logger = @logger
+          context.pipelining = @pipelining
         end.run do |context, state, event, *args|
           events&.call(context, state, event, *args)
         end

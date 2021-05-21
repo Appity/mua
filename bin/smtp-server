@@ -18,6 +18,7 @@ require 'logger'
 options = {
   listen: '127.0.0.1:1025',
   timeout: 30,
+  pipelining: true,
   silent: false
 }
 
@@ -32,6 +33,7 @@ program = OptionParser.new do |opts|
   opts.on('--hostname HOSTNAME', 'Specify hostname used in EHLO banner')
   opts.on('--cert CERT', 'Base path to TLS certicificate/key pair (minus .pem and .crt extensions)')
   opts.on('-j', '--reject [RESPONSE]', 'Reject all transactions with code')
+  opts.on('--[no-]pipelining', 'Enable (disable) SMTP pipelining')
   opts.on('-e', '--deny [RESPONSE]', 'Reject all connections with code')
 end
 
@@ -132,7 +134,8 @@ begin
         :port,
         :timeout,
         :tls_key_path,
-        :tls_cert_path
+        :tls_cert_path,
+        :pipelining
       )
     ) do |context, state, event, *args|
       if (options[:verbose])

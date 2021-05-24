@@ -72,10 +72,6 @@ class Mua::Struct::Builder
       type.extend(extends)
     end
 
-    if (block_given?)
-      type.class_eval(&block)
-    end
-
     visible_attrs = self.visible_attrs(attrs).freeze
 
     type.define_method(:to_h) do
@@ -92,7 +88,7 @@ class Mua::Struct::Builder
     end
 
     type.define_method(:to_json) do |opts = nil|
-      JSON.generate(self.to_h, opts)
+      JSON.generate(self.as_json, opts)
     end
 
     @block and type.class_eval(&@block)

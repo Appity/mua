@@ -18,6 +18,7 @@ class Mua::Interpreter
         *attr_list,
         **attr_spec
       )
+
       machine = Mua::State::Machine.define(
         name: name,
         **attr_spec.slice(:initial_state, :terminal_states),

@@ -84,7 +84,7 @@ RSpec.describe Mua::State::Context, type: :reactor do
 
   it 'can be associated with an Async reactor' do
     executed = false
-    
+
     Async do |reactor|
       context = Mua::State::Context.new(reactor: reactor)
 
@@ -118,6 +118,33 @@ RSpec.describe Mua::State::Context, type: :reactor do
 
     it 'returns a class that can be instantiated' do
       expect(context_type).to be_kind_of(Class)
+    end
+
+    it 'allows reflection on defined fields' do
+      expect(context_type.attributes).to eq(%i[
+        state
+        nil_value
+        fixed_value
+        with_proc
+        with_customization
+      ])
+    end
+
+    describe 'has an initial state' do
+      it 'that has a default' do
+        expect(context_type.initial_state).to eq(:initialize)
+
+        context = context_type.new
+
+        expect(context.initial_state).to eq(:initialize)
+        expect(context.state).to eq(:initialize)
+      end
+
+      it 'that can be adjusted' do
+        context = context_type.new(state: :adjusted)
+
+        expect(context.state).to eq(:adjusted)
+      end
     end
 
     it 'returns a class that can be subclassed' do
@@ -178,6 +205,8 @@ RSpec.describe Mua::State::Context, type: :reactor do
     end
 
     it 'can be exported as a Hash' do
+      expect(context_type.initial_state).to eq(:initialize)
+
       context = context_type.new(
         nil_value: 'not_nil',
         fixed_value: nil,
@@ -186,9 +215,9 @@ RSpec.describe Mua::State::Context, type: :reactor do
       )
 
       expect(context.to_h).to eq(
+        state: :initialize,
         fixed_value: nil,
         nil_value: "not_nil",
-        state: :initialize,
         with_customization: "-",
         with_proc: false
       )
@@ -205,11 +234,11 @@ RSpec.describe Mua::State::Context, type: :reactor do
       )
 
       expect(context.to_json).to eq({
+        state: :initialize,
         nil_value: "not_nil",
         fixed_value: nil,
         with_proc: false,
-        with_customization: "-",
-        state: :initialize
+        with_customization: "-"
       }.to_json)
     end
   end

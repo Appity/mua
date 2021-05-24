@@ -30,6 +30,7 @@ RSpec.describe Mua::SMTP::Client::Interpreter, type: [ :interpreter, :reactor ],
   it 'supports standard SMTP connections' do
     with_interpreter(ClientInterpreter) do |context, io|
       expect(context.state).to eq(:smtp_connect)
+
       io.puts('220 mail.example.com SMTP Example')
       expect(io.gets).to eq('EHLO localhost')
 

@@ -1,7 +1,16 @@
-Mua::Message::DeliveryResult = Mua::State::Context.define(
-  initial_state: :queued,
+require 'securerandom'
+
+Mua::Message::DeliveryResult = Mua::Struct.define(
+  state: {
+    default: :queued
+  },
   message: {
     # Arbitrary message payload object
+  },
+  id: {
+    default: -> (delivery_result) {
+      delivery_result.message&.id || SecureRandom.uuid
+    }
   },
   result_code: {
     # Should be a result code of the form SMTP_NNN, SOCKS5_NNN or HTTP_NNN

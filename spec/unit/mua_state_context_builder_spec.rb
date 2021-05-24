@@ -1,42 +1,6 @@
 require 'date'
 
 RSpec.describe Mua::State::Context::Builder do
-  describe 'remap_attrs()' do
-    it 'normalizes list vs. hash arguments' do
-      normalized = Mua::State::Context::Builder.remap_attrs(
-        [ :example ],
-        {
-          property: { default: true, boolean: true },
-          secondary: { default: 2, variable: :@second }
-        }
-      )
-
-      expect(normalized).to eq(
-        example: { variable: :@example, default: nil },
-        property: { variable: :@property, default: true, boolean: true },
-        secondary: { variable: :@second, default: 2 }
-      )
-    end
-
-    it 'can take a block argument' do
-      normalized = Mua::State::Context::Builder.remap_attrs(
-        [ :example ],
-        {
-          property: { default: true }
-        }
-      ) do |attr_name, attr_value|
-        attr_value[:original] = attr_name
-
-        [ :"#{attr_name}_x", attr_value ]
-      end
-
-      expect(normalized).to eq(
-        example_x: { variable: :@example, default: nil, original: :example },
-        property_x: { variable: :@property, default: true, original: :property },
-      )
-    end
-  end
-
   context 'class_with_attributes()' do
     context_type = Mua::State::Context::Builder.class_with_attributes(
       [ ],

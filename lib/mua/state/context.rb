@@ -2,9 +2,10 @@ require 'async/io/stream'
 
 require_relative '../attr_boolean'
 require_relative '../constants'
+require_relative '../struct'
 require_relative '../token'
 
-class Mua::State::Context
+class Mua::State::Context < Mua::Struct
   # == Constants ============================================================
 
   # == Extensions ===========================================================
@@ -23,19 +24,39 @@ class Mua::State::Context
   # == Class Methods ========================================================
 
   def self.define(*attr_list, **attr_spec, &block)
-    Builder.class_with_attributes(attr_list, attr_spec, self, &block)
+    Mua::State::Context::Builder.class_with_attributes(
+      attr_list,
+      attr_spec,
+      self,
+      &block
+    )
   end
 
   def self.attr_map
-    { }
+    {
+      state: {
+        variable: :@state,
+        default: -> (context) { context.initial_state }
+      }
+    }
+  end
+
+  def self.initial_state
+    Mua::State::INITIAL_DEFAULT
+  end
+
+  def self.terminal_states
+    Mua::State::TERMINAL_DEFAULT
   end
 
   # == Instance Methods =====================================================
 
   def initialize(reactor: nil, state: nil, input: nil, iteration_limit: nil)
+    super()
+
     @reactor = reactor
-    @state = state || self.initial_state
     @input = input
+    @state = state || self.initial_state
     @terminated = false
     @events = nil
 

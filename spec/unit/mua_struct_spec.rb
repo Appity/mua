@@ -134,10 +134,10 @@ RSpec.describe Mua::Struct, type: :reactor do
       )
 
       expect(context.to_json).to eq({
-        nil_value: "not_nil",
+        nil_value: 'not_nil',
         fixed_value: nil,
         with_proc: false,
-        with_customization: "-"
+        with_customization: '-'
       }.to_json)
     end
   end

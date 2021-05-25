@@ -45,6 +45,10 @@ class Mua::Message::Batch < Async::Notification
     @closed = true
   end
 
+  def complete?
+    @closed and @queue.empty?
+  end
+
   def requeue(message)
     @queue << message
 

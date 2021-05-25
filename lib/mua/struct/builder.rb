@@ -49,7 +49,7 @@ class Mua::Struct::Builder
     define_initialize!(type, attrs)
 
     type.class_eval do
-      define_method(:attr_map) do
+      define_singleton_method(:attr_map) do
         attrs
       end
     end

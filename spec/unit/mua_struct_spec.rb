@@ -24,6 +24,16 @@ RSpec.describe Mua::Struct, type: :reactor do
     expect(context.example?).to be(true)
   end
 
+  it 'can be derived from other structs' do
+    base = Mua::Struct.define(:a)
+
+    expect(base.attributes).to eq(%i[ a ])
+
+    derived = base.define(:b)
+
+    expect(derived.attributes).to eq(%i[ a b ])
+  end
+
   it 'can have methods defined via a block' do
     defined = Mua::Struct.define do
       def customized?

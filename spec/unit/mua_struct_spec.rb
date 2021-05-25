@@ -32,6 +32,11 @@ RSpec.describe Mua::Struct, type: :reactor do
     derived = base.define(:b)
 
     expect(derived.attributes).to eq(%i[ a b ])
+
+    instance = derived.new
+
+    expect(instance.to_h).to eq(a: nil, b: nil)
+    expect(instance.to_json).to eq('{"a":null,"b":null}')
   end
 
   it 'can have methods defined via a block' do

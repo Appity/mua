@@ -1,5 +1,7 @@
 require 'securerandom'
 
+require 'mail'
+
 class Mua::Message
   # == Constants ============================================================
 
@@ -43,6 +45,21 @@ class Mua::Message
 
   def self.states
     STATES
+  end
+
+  def self.load_file(path, retry_limit: nil)
+    data = File.read(path).gsub(/\r?\n/, "\r\n")
+
+    parsed = Mail.new(data)
+
+    new(
+      id: File.basename(path),
+      mail_from: parsed.from[0],
+      rcpt_to: parsed.to,
+      name: path.delete_prefix(Dir.pwd + '/'),
+      data: data,
+      retry_limit: retry_limit
+    )
   end
 
   def self.from(message = nil, **args)

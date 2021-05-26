@@ -17,49 +17,6 @@ require 'logger'
 
 # == Support Methods ========================================================
 
-def samples(path, recursive: false, shuffle: false, limit: false, &block)
-  files = [ ]
-
-  if (File.file?(path))
-    files << path
-  else
-    spec = recursive ? '**/*' : '*'
-
-    files += Dir.glob(File.expand_path(File.join(path, spec), Dir.pwd)).select do |f|
-      File.file?(f)
-    end
-
-    if (shuffle)
-      files.shuffle!
-    end
-
-    if (limit)
-      files = files.first(limit)
-    end
-  end
-
-  if (block_given?)
-    files.each(&block)
-  end
-
-  files
-end
-
-def message_parse(path, options)
-  data = File.read(path).gsub(/\r?\n/, "\r\n")
-
-  parsed = Mail.new(data)
-
-  {
-    id: File.basename(path),
-    mail_from: parsed.from[0],
-    rcpt_to: parsed.to,
-    name: path.delete_prefix(Dir.pwd + '/'),
-    data: data,
-    retry_limit: options[:retries]
-  }
-end
-
 # == Main ===================================================================
 
 # NOTE: These need to be defined like x-y and are transformed to x_y
@@ -111,22 +68,30 @@ end
 # TODO: Add Async::IO::Trap.new(:INT)
 #       per https://github.com/socketry/async-io/blob/master/examples/echo/server.rb
 
-messages = [ ]
+messages = Mua::Message::Batch.new
 
 Async do
   args.each do |path|
     if (File.directory?(path))
-      samples(path, shuffle: options[:shuffle], limit: options[:limit], recursive: options[:recursive]) do |file|
-        messages << message_parse(file, options)
-      end
+      Mua::Message::Batch.from_path(
+        path,
+        shuffle: options[:shuffle],
+        limit: options[:limit],
+        recursive: options[:recursive],
+        into: messages
+      )
+
+      # samples(path, shuffle: options[:shuffle], limit: options[:limit], recursive: options[:recursive]) do |file|
+      #   messages << message_parse(file, options)
+      # end
     elsif (File.file?(path))
-      messages << message_parse(path, options)
+      messages << Mua::Message.load_file(path)
     end
   end
 end
 
 if (options[:verbose])
-  puts("> Loaded %d sample(s)" % messages.length)
+  puts("> Loaded %d sample(s)" % messages.queue_length)
 end
 
 if (options[:fork])
@@ -138,15 +103,13 @@ end
 start = Time.now.utc
 
 begin
-  batch = nil
-
   Async do |reactor|
+    retries = 0
     options[:reactor] = reactor
 
-    batch = Mua::Message::Batch.new(messages)
-    options[:batch] = batch
+    options[:batch] = messages
 
-    while (batch.queue_any?)
+    while (messages.queue_any?)
       if (options[:verbose])
         via_proxy = options[:proxy_host] && (' through %s:%s' % [ options[:proxy_host], options[:proxy_port] ])
 
@@ -172,11 +135,21 @@ begin
       end.each(&:wait)
 
       # Short back-off before reconnecting
-      if (batch.queue_any?)
+      if (messages.queue_any?)
+        retries += 1
+
+        if (retries > options[:retries])
+          if (options[:verbose])
+            puts '> Exhausted retry limit (%d)' % options[:retries]
+          end
+
+          break
+        end
+
         if (options[:verbose])
           puts '> Backing off %d second(s) before reconnecting to deliver remaining %d message(s)' % [
             options[:backoff],
-            batch.queue_length
+            messages.queue_length
           ]
         end
 
@@ -185,11 +158,11 @@ begin
     end
 
     puts(
-      batch.message_report.map do |state, count|
+      messages.message_report.map do |state, count|
         '%d %s (%.1f%%)' % [
           count,
           state,
-          count * 100.0 / batch.length
+          count * 100.0 / messages.length
         ]
       end.join(', ')
     )
@@ -198,9 +171,9 @@ begin
   if (options[:stopwatch])
     delta = Time.now - start
 
-    report = batch.message_report
+    report = messages.message_report
 
-    mb = batch.messages.map { |d| d.data.bytesize }.sum / 1024**2
+    mb = messages.messages.map { |d| d.data.bytesize }.sum / 1024**2
 
     puts('Sent %d message(s) in %.1fs at %.1fMPS (%.1fMB at %.1fMB/s)' % [
       report[:delivered],
@@ -212,7 +185,7 @@ begin
   end
 
   if (options[:report])
-    failed = batch.messages.reject(&:delivered?)
+    failed = messages.messages.reject(&:delivered?)
 
     if (failed.any?)
       puts 'Failed deliveries:'

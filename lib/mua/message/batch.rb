@@ -1,4 +1,5 @@
 require 'async/notification'
+require 'mail'
 
 class Mua::Message::Batch < Async::Notification
   # == Constants ============================================================
@@ -15,6 +16,36 @@ class Mua::Message::Batch < Async::Notification
   attr_reader :messages
 
   # == Class Methods ========================================================
+
+  def self.from_path(path, recursive: false, shuffle: false, limit: false, into: nil)
+    files = [ ]
+
+    if (File.file?(path))
+      files << path
+    else
+      spec = recursive ? '**/*' : '*'
+
+      files += Dir.glob(File.expand_path(File.join(path, spec), Dir.pwd)).select do |f|
+        File.file?(f)
+      end
+
+      if (shuffle)
+        files.shuffle!
+      end
+
+      if (limit)
+        files = files.first(limit)
+      end
+    end
+
+    into ||= new
+
+    files.each do |file|
+      into << Mua::Message.load_file(file)
+    end
+
+    into
+  end
 
   # == Instance Methods =====================================================
 
@@ -35,6 +66,10 @@ class Mua::Message::Batch < Async::Notification
     @processed = [ ]
 
     @closed = closed.nil? ? !!messages : !!closed
+  end
+
+  def to_a
+    @messages.dup
   end
 
   def closed?

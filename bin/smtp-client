@@ -52,7 +52,8 @@ program = OptionParser.new do |opts|
   opts.on('-f', '--fork COUNT', 'Fork N times before sending', Integer)
   opts.on('-w', '--stopwatch', 'Enable performance metrics')
   opts.on('--retries LIMIT', 'Limit to a particular number of retries')
-  opts.on('--report', 'Report on failed deliveries')
+  opts.on('--report', 'Print delivery report')
+  opts.on('--report-failed', 'Only show delivery failures')
 end
 
 args = program.parse!(ARGV, into: options)
@@ -88,6 +89,8 @@ Async do
       messages << Mua::Message.load_file(path)
     end
   end
+
+  messages.close!
 end
 
 if (options[:verbose])
@@ -122,6 +125,14 @@ begin
 
       options[:connections].times.map do
         Mua::SMTP::Client.new(**options) do |context, state, event, *args|
+          if (options[:verbose] and event == :entered and state.name == :established)
+            puts('%s:%d> Connected%s' % [
+              options[:smtp_host],
+              options[:smtp_port],
+              via_proxy
+            ])
+          end
+
           next unless (options[:debug])
 
           puts('%s:%d> %s %s %s' % [
@@ -185,20 +196,24 @@ begin
   end
 
   if (options[:report])
-    failed = messages.messages.reject(&:delivered?)
+    results = messages.message_results
 
-    if (failed.any?)
-      puts 'Failed deliveries:'
+    pp results
 
-      failed.reject(&:delivered?).each do |message|
-        puts 'Message-ID: %s' % message.id
-        puts '  From: %s' % message.mail_from
-        puts '  To: %s' % message.rcpt_to
-        puts '  Attempts:'
+    if (options[:'report-failed'])
+      results.reject! { |m| m[:state] == :delivered }
+    end
 
-        message.delivery_results.each do |result|
-          puts '    %s %s' % [ result.result_code, result.result_message ]
-        end
+    results.each do |message|
+      puts 'Message-ID: %s' % message[:id]
+      puts 'State: %s' % message[:state]
+
+      message[:results].each do |result|
+        puts '  %s [%s] %s' % [
+          result[:result_code],
+          result[:state],
+          result[:result_message]
+        ]
       end
     end
   end

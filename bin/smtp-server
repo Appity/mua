@@ -147,6 +147,16 @@ begin
         puts('%s> Connection received' % [
           context.remote_addr
         ])
+      when :helo_accepted
+        puts('%s> Remote HELO from %s' % [
+          context.remote_addr,
+          context.helo_hostname
+        ])
+      when :ehlo_accepted
+        puts('%s> Remote EHLO from %s' % [
+          context.remote_addr,
+          context.helo_hostname
+        ])
       when :deliver_accept
         message = args[0]
         received[context.id][:messages] += 1

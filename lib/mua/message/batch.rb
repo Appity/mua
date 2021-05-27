@@ -99,9 +99,12 @@ class Mua::Message::Batch < Async::Notification
       raise QueueClosedError, 'Unable to write to closed queue'
     end
 
-    @queue << Mua::Message.from(message).tap do |message|
+    message = Mua::Message.from(message).tap do |message|
       message.batch = self
     end
+
+    @messages << message
+    @queue << message
 
     self.signal
   end
@@ -160,6 +163,22 @@ class Mua::Message::Batch < Async::Notification
   def message_report
     @messages.each_with_object(Hash.new(0)) do |message, count|
       count[message.state] += 1
+    end
+  end
+
+  def message_results
+    @messages.map do |message|
+      {
+        id: message.id,
+        state: message.delivery_results.last&.state || :failed,
+        results: message.delivery_results.map do |result|
+          {
+            state: result.state,
+            result_code: result.result_code,
+            result_message: result.result_message
+          }
+        end
+      }
     end
   end
 

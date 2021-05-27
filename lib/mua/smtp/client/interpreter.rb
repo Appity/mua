@@ -176,7 +176,7 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
 
       if (context.batch.queue_any?)
         context.transition!(state: :deliver)
-      elsif (context.close_requested?)
+      elsif (context.batch.closed?)
         context.transition!(state: :quit)
       end
     end
@@ -212,9 +212,22 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
     end
 
     interpret(503) do |context, result_messages|
+      # NOTE: Some servers require re-negotiating a EHLO after STARTTLS
       if (result_messages[0].match(/5\.5\.1/))
         context.transition!(state: :re_helo)
       end
+    end
+
+    # FIX: Handle sender specific issues (400..599)
+    interpret(400..599) do |context, result_code, result_messages|
+      unless (context.message.test?)
+        context.message.rejected!(
+          result_code: "SMTP_#{result_code}",
+          result_message: result_messages.join(' ')
+        )
+      end
+
+      context.transition!(state: :reset)
     end
   end
 

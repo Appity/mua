@@ -42,12 +42,14 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
         context.log(:debug, "#{context.remote_ip}:#{context.remote_port} to #{context.local_ip}:#{context.local_port} Rejecting cconnection from #{helo_hostname}")
 
         context.close!
-        context.event!(context, self, :connection_refused)
+        context.event!(context, self, :ehlo_refused)
 
         context.transition!(state: :finished)
       elsif (context.valid_hostname?(helo_hostname))
         context.log(:debug, "#{context.remote_ip}:#{context.remote_port} to #{context.local_ip}:#{context.local_port} Accepting connection from #{helo_hostname}")
         context.helo_hostname = helo_hostname
+
+        context.event!(context, self, :ehlo_accepted)
 
         message = message.dup # Allow returning frozen strings
         message[3] = '-' # Mark as a continued message
@@ -60,6 +62,8 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
       else
         context.log(:debug, "#{context.remote_ip}:#{context.remote_port} to #{context.local_ip}:#{context.local_port} Rejecting connection from #{helo_hostname} because of invalid FQDN")
         context.reply('504 Need fully qualified hostname')
+
+        context.event!(context, self, :ehlo_refused)
       end
     end
 
@@ -72,17 +76,21 @@ Mua::SMTP::Server::Interpreter = Mua::Interpreter.define(
         context.log(:debug, "#{context.remote_ip}:#{context.remote_port} to #{context.local_ip}:#{context.local_port} Rejecting cconnection from #{helo_hostname}")
 
         context.close!
-        context.event!(context, self, :connection_refused)
+        context.event!(context, self, :helo_refused)
 
         context.transition!(state: :finished)
       elsif (context.valid_hostname?(helo_hostname))
         context.log(:debug, "#{context.remote_ip}:#{context.remote_port} to #{context.local_ip}:#{context.local_port} Accepting connection from #{helo_hostname}")
         context.helo_hostname = helo_hostname
 
+        context.event!(context, self, :helo_accepted)
+
         context.reply("250 #{context.hostname} Hello #{context.helo_hostname} [#{context.remote_ip}]")
       else
         context.log(:debug, "#{context.remote_ip}:#{context.remote_port} to #{context.local_ip}:#{context.local_port} Rejecting connection from #{helo_hostname} because of invalid FQDN")
         context.reply('504 Need fully qualified hostname')
+
+        context.event!(context, self, :helo_refused)
       end
     end
 

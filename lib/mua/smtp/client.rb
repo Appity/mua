@@ -48,7 +48,7 @@ class Mua::SMTP::Client
             @interpreter.run(&block)
           end
 
-        rescue Errno::ECONNREFUSED
+        rescue Errno::ECONNREFUSED, Errno::EPIPE
           task.sleep(@context.backoff)
           retry
         rescue Async::Stop

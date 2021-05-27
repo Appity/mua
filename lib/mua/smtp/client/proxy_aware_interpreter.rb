@@ -58,7 +58,7 @@ Mua::SMTP::Client::ProxyAwareInterpreter = Mua::Interpreter.define(
     end
   end
 
-  rescue_from(Errno::ECONNRESET) do |context, e|
+  rescue_from(Errno::ECONNRESET, Errno::EPIPE) do |context, e|
     context.exception = e
     context.terminated!
   end

@@ -51,8 +51,10 @@ class Mua::State::Proxy
 
   # Defines a handler for exceptions generated during the state machine's
   # operation.
-  def rescue_from(exception, &proc)
-    @state.rescue_from << [ exception, proc ]
+  def rescue_from(*exceptions, &proc)
+    exceptions.each do |exception|
+      @state.rescue_from << [ exception, proc ]
+    end
   end
 
   # Defines a new state for a Mua::State::Machine

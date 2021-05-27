@@ -14,6 +14,9 @@ module Mua
             line = self.input.gets
 
             line and yield(line.chomp)
+
+          rescue Errno::ECONNRESET
+            nil
           end
 
           self.read_task.wait.tap do |line|

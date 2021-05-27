@@ -52,8 +52,10 @@ class Mua::Message
 
     parsed = Mail.new(data)
 
+    message_id = parsed.header['Message-ID']&.value&.delete_prefix('<')&.delete_suffix('>')
+
     new(
-      id: File.basename(path),
+      id: message_id || File.basename(path),
       mail_from: parsed.from[0],
       rcpt_to: parsed.to,
       name: path.delete_prefix(Dir.pwd + '/'),

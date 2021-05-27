@@ -17,6 +17,7 @@ require_relative 'mua/message'
 require_relative 'mua/parser'
 require_relative 'mua/state'
 require_relative 'mua/struct'
+require_relative 'mua/support'
 
 # require_relative 'mua/imap' # Pending implementation
 require_relative 'mua/smtp'

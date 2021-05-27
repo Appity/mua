@@ -54,6 +54,7 @@ program = OptionParser.new do |opts|
   opts.on('--retries LIMIT', 'Limit to a particular number of retries')
   opts.on('--report', 'Print delivery report')
   opts.on('--report-failed', 'Only show delivery failures')
+  opts.on('-o', '--output FORMAT', 'Output format (YAML, JSON)')
 end
 
 args = program.parse!(ARGV, into: options)
@@ -198,22 +199,27 @@ begin
   if (options[:report])
     results = messages.message_results
 
-    pp results
-
     if (options[:'report-failed'])
       results.reject! { |m| m[:state] == :delivered }
     end
 
-    results.each do |message|
-      puts 'Message-ID: %s' % message[:id]
-      puts 'State: %s' % message[:state]
+    case (options[:output]&.downcase)
+    when 'yaml'
+      puts YAML.dump(Mua::Support.stringify_keys(results))
+    when 'json'
+      puts JSON.dump(results)
+    else
+      results.each do |message|
+        puts 'Message-ID: %s' % message[:id]
+        puts 'State: %s' % message[:state]
 
-      message[:results].each do |result|
-        puts '  %s [%s] %s' % [
-          result[:result_code],
-          result[:state],
-          result[:result_message]
-        ]
+        message[:results].each do |result|
+          puts '  %s [%s] %s' % [
+            result[:result_code],
+            result[:state],
+            result[:result_message]
+          ]
+        end
       end
     end
   end

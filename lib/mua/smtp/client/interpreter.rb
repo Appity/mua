@@ -176,7 +176,7 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
 
       if (context.batch.queue_any?)
         context.transition!(state: :deliver)
-      elsif (context.batch.closed?)
+      elsif (context.batch.closed? or context.close_requested?)
         context.transition!(state: :quit)
       end
     end

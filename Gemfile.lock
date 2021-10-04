@@ -49,6 +49,7 @@ GEM
     timers (4.3.3)
 
 PLATFORMS
+  arm64-darwin-20
   x86_64-darwin-20
 
 DEPENDENCIES
@@ -62,4 +63,4 @@ DEPENDENCIES
   stackprof
 
 BUNDLED WITH
-   2.2.16
+   2.2.28

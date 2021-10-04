@@ -26,6 +26,10 @@ class Mua::SMTP::Client
       @context.remote_port = @context.smtp_port
     end
 
+    if (options[:logger])
+      @context.smtp_loggers << options[:logger]
+    end
+
     @endpoint = Async::IO::Endpoint.tcp(@context.remote_ip, @context.remote_port)
     ready = Async::Condition.new
 

@@ -46,12 +46,20 @@ module Mua
         end
 
         def write(data)
+          self.smtp_loggers.each do |logger|
+            logger.call(:send, data)
+          end
+
           self.log(:send, data)
           self.input.write(data)
           self.input.flush
         end
 
         def reply(*lines)
+          self.smtp_loggers.each do |logger|
+            logger.call(:send, *lines)
+          end
+
           self.log(:send, *lines)
           self.input.puts(*lines, separator: Mua::Constants::CRLF)
         end

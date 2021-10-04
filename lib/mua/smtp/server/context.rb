@@ -61,6 +61,9 @@ Mua::SMTP::Server::Context = Mua::State::Context.define(
   messages: {
     default: -> { [ ] }
   },
+  smtp_loggers: {
+    default: -> { [ ] }
+  },
   includes: [
     Mua::SMTP::Common::ContextExtensions,
     Mua::SMTP::Server::ContextExtensions

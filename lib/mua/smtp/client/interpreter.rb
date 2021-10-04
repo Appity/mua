@@ -21,6 +21,10 @@ Mua::SMTP::Client::Interpreter = Mua::Interpreter.define(
         context.result_code = "SMTP_#{result_code}"
         context.result_message = buffer
 
+        context.smtp_loggers.each do |logger|
+          logger.call(:recv, context.result_code, *context.result_message)
+        end
+
         [ result_code, buffer ]
       end
     end

@@ -54,7 +54,11 @@ class Mua::SMTP::Connection
   end
 
   def method_missing(name, *args)
-    context.reply("#{name.to_s.upcase.tr('_', ' ')} #{args.join(' ')}")
+    if (args.any?)
+      context.reply("#{name.to_s.upcase.tr('_', ' ')} #{args.join(' ')}")
+    else
+      context.reply(name.to_s.upcase.tr('_', ' '))
+    end
 
     self.response
   end
@@ -73,6 +77,7 @@ class Mua::SMTP::Connection
     # end
 
     peer = @endpoint.connect
+    peer.sync = true
     peer.timeout = @context.timeout
 
     @context.input = Async::IO::Stream.new(peer)

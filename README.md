@@ -71,4 +71,4 @@ The gem is available as open source under the terms of the
 
 Everyone interacting in the Asmail project’s codebases, issue trackers, chat
 rooms and mailing lists is expected to follow the
-[code of conduct](https://github.com/postageapp/mua/blob/master/CODE_OF_CONDUCT.md).
+[code of conduct](https://github.com/appity/mua/blob/master/CODE_OF_CONDUCT.md).

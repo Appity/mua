@@ -8,18 +8,18 @@ Gem::Specification.new do |spec|
   spec.name = 'mua'
   spec.version = Mua.version
   spec.authors = [ 'Scott Tadman' ]
-  spec.email = [ 'tadman@postageapp.com' ]
+  spec.email = [ 'tadman@appity.studio' ]
 
   spec.summary = %q{Ruby Async Mail User Agent}
   spec.description = %q{Fiberized Mail User Agent Library for Ruby Async}
-  spec.homepage = 'https://github.com/postageapp/mua'
+  spec.homepage = 'https://github.com/appity/mua'
   spec.license = 'MIT'
 
   spec.metadata['allowed_push_host'] = 'https://rubygems.org/'
 
   spec.metadata['homepage_uri'] = spec.homepage
-  spec.metadata['source_code_uri'] = 'https://github.com/postageapp/mua'
-  spec.metadata['changelog_uri'] = 'https://github.com/postageapp/mua/CHANGELOG.md'
+  spec.metadata['source_code_uri'] = 'https://github.com/appity/mua'
+  spec.metadata['changelog_uri'] = 'https://github.com/appity/mua/CHANGELOG.md'
 
   # Specify which files should be added to the gem when it is released.
   # The `git ls-files -z` loads the files in the RubyGem that have been added into git.
